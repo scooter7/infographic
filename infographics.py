@@ -16,7 +16,7 @@ def generate_content(prompt):
             {"role": "user", "content": prompt}
         ]
     )
-    return response.choices[0].message['content'].strip() if hasattr(response.choices[0], 'message') else response.choices[0].text.strip()
+    return response.choices[0].message.content.strip()
 
 # Function to save the project data as JSON
 def save_project_data(canvas_data):
