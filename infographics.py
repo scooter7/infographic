@@ -1,13 +1,7 @@
 import streamlit as st
 import pandas as pd
 import openai
-import json
 import plotly.express as px
-import plotly.io as pio
-import io
-from PIL import Image
-import base64  # Import base64 module
-import kaleido  # Ensure kaleido is installed
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
@@ -22,8 +16,8 @@ def interpret_prompt(prompt, df):
     )
     return response.choices[0].message.content.strip()
 
-# Function to create a chart based on the interpreted instruction and return it as an image
-def create_chart_image(columns, df, chart_type):
+# Function to create a chart based on the interpreted instruction
+def create_chart(columns, df, chart_type):
     if chart_type == "Bar Chart":
         st.write("Generating Bar Chart...")
         if len(columns) == 2:
@@ -33,9 +27,9 @@ def create_chart_image(columns, df, chart_type):
             # Plotly Bar Chart
             fig = px.bar(data, x=columns[0], y='counts', color=columns[1], barmode='group',
                          title=f'Bar Chart of {columns[0]} vs {columns[1]}')
+            st.plotly_chart(fig)
         else:
             st.write("Please select exactly two columns for the bar chart.")
-            return None
     elif chart_type == "Line Chart":
         st.write("Generating Line Chart...")
         if len(columns) == 2:
@@ -44,9 +38,9 @@ def create_chart_image(columns, df, chart_type):
             # Plotly Line Chart
             fig = px.line(data, x=columns[0], y='counts', color=columns[1],
                           title=f'Line Chart of {columns[0]} vs {columns[1]}')
+            st.plotly_chart(fig)
         else:
             st.write("Please select exactly two columns for the line chart.")
-            return None
     elif chart_type == "Pie Chart":
         st.write("Generating Pie Chart...")
         if len(columns) == 1:
@@ -56,17 +50,14 @@ def create_chart_image(columns, df, chart_type):
             # Plotly Pie Chart
             fig = px.pie(data, names=columns[0], values='counts',
                          title=f'Pie Chart of {columns[0]}')
+            st.plotly_chart(fig)
         else:
             st.write("Please select exactly one column for the pie chart.")
-            return None
+    elif chart_type == "Table":
+        st.write("Displaying Data Table...")
+        st.write(df)
     else:
         st.write("Sorry, I couldn't interpret the instruction. Please try another prompt.")
-        return None
-
-    # Convert Plotly figure to image
-    img_bytes = pio.to_image(fig, format='png')
-    img = Image.open(io.BytesIO(img_bytes))
-    return img
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -91,28 +82,7 @@ if csv_file:
     # Generate chart or table based on selected columns and chart type
     if st.button("Generate Chart/Table"):
         if len(selected_columns) > 0:
-            chart_img = create_chart_image(selected_columns, df, chart_type)
-            if chart_img:
-                # Convert the image to base64 for embedding into HTML
-                buffered = io.BytesIO()
-                chart_img.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
-                img_html = f'<img id="chart-img" src="data:image/png;base64,{img_str}" />'
-                
-                # JavaScript to add the image to the fabric.js canvas
-                add_image_js = f"""
-                <script>
-                    var imgElement = document.getElementById('chart-img');
-                    var imgInstance = new fabric.Image(imgElement, {{
-                        left: 100,
-                        top: 100,
-                        angle: 0,
-                        opacity: 1.0
-                    }});
-                    canvas.add(imgInstance);
-                </script>
-                """
-                st.markdown(img_html + add_image_js, unsafe_allow_html=True)
+            create_chart(selected_columns, df, chart_type)
         else:
             st.write("Please select at least one column for the chart/table.")
 
