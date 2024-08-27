@@ -2,33 +2,38 @@ import streamlit as st
 import pandas as pd
 import openai
 import json
-from PIL import Image
-import base64
+import matplotlib.pyplot as plt
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
 
 # Function to generate content using GPT-4o-mini
-def generate_content(prompt):
+def interpret_prompt(prompt, df):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": f"Based on the following data: {df.head().to_string()}, {prompt}"}
         ]
     )
     return response.choices[0].message.content.strip()
 
-# Function to save the project data as JSON
-def save_project_data(canvas_data):
-    project_data = {
-        "canvas_data": canvas_data
-    }
-    return json.dumps(project_data)
-
-# Function to load the project data from JSON
-def load_project_data(json_data):
-    project_data = json.loads(json_data)
-    return project_data["canvas_data"]
+# Function to create a chart or table based on the interpreted instruction
+def create_chart_or_table(instruction, df):
+    if "bar chart" in instruction.lower():
+        st.write("Generating Bar Chart...")
+        plt.figure(figsize=(10, 6))
+        df.plot(kind='bar')
+        st.pyplot(plt)
+    elif "line chart" in instruction.lower():
+        st.write("Generating Line Chart...")
+        plt.figure(figsize=(10, 6))
+        df.plot(kind='line')
+        st.pyplot(plt)
+    elif "table" in instruction.lower():
+        st.write("Displaying Data Table...")
+        st.write(df)
+    else:
+        st.write("Sorry, I couldn't interpret the instruction. Please try another prompt.")
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -40,24 +45,18 @@ if csv_file:
     st.write("Data Preview:")
     st.write(df)
 
-    # Select chart type
-    chart_type = st.selectbox("Select Chart Type", ["Line", "Bar", "Area"])
-    
-    # Generate chart prompt and pass to OpenAI for chart title generation
-    chart_prompt = f"Create a {chart_type} chart title for data:\n{df.head().to_string()}"
-    chart_title = generate_content(chart_prompt)
-    st.write("Suggested Chart Title:", chart_title)
-    
-    # Display chart (Placeholder - Replace with actual chart generation)
-    st.write(f"Chart placeholder: {chart_type} chart with title '{chart_title}'")
+    # Text field for user to input prompt
+    user_prompt = st.text_input("Enter your instruction for creating a chart or table based on the data:")
 
-# Upload Image file
-image_file = st.file_uploader("Upload Image", type=["png", "jpg", "jpeg"])
-if image_file:
-    img = Image.open(image_file)
-    st.image(img, caption="Uploaded Image", use_column_width=True)
+    if user_prompt:
+        # Interpret the prompt using GPT-4o-mini
+        instruction = interpret_prompt(user_prompt, df)
+        st.write(f"Interpreted Instruction: {instruction}")
 
-# Text field customization
+        # Generate chart or table based on the interpreted instruction
+        create_chart_or_table(instruction, df)
+
+# Text field customization for infographic
 st.subheader("Add Text Field")
 text_input = st.text_input("Enter text")
 font_size = st.slider("Font Size", 10, 100, 30)
@@ -78,24 +77,6 @@ canvas_init = """
 </script>
 """
 
-# Load existing project data if provided
-if 'loaded_canvas' not in st.session_state:
-    st.session_state['loaded_canvas'] = ''
-
-uploaded_project = st.file_uploader("Upload Project", type=["json"])
-if uploaded_project:
-    project_json = uploaded_project.read().decode("utf-8")
-    st.session_state['loaded_canvas'] = load_project_data(project_json)
-    st.success("Project loaded successfully!")
-
-# Draw elements from existing project data
-canvas_draw_elements = f"""
-<script>
-  var canvas = new fabric.Canvas('canvas');
-  canvas.loadFromJSON({st.session_state['loaded_canvas']});
-</script>
-"""
-
 # Fabric.js canvas HTML
 canvas_html = f"""
 <canvas id="canvas"></canvas>
@@ -103,7 +84,6 @@ canvas_html = f"""
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
 {canvas_init}
-{canvas_draw_elements}
 
 <script>
   function saveCanvas() {{
