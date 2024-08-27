@@ -50,9 +50,9 @@ if csv_file:
 
                 # Convert the chart to a static image
                 img_bytes = pio.to_image(fig, format="png")
-
-                # Display the static image
-                st.image(img_bytes, caption="Chart as Image", use_column_width=True)
+                
+                # Encode image as base64
+                img_base64 = base64.b64encode(img_bytes).decode()
 
                 # Provide a download button for the image
                 st.download_button(
@@ -61,6 +61,23 @@ if csv_file:
                     file_name="chart.png",
                     mime="image/png"
                 )
+
+                # Prepare the canvas with the chart image
+                canvas_html = f"""
+                <canvas id="canvas"></canvas>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
+                <script>
+                    var canvas = new fabric.Canvas('canvas', {{
+                        width: 800,
+                        height: 600,
+                    }});
+                    fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(oImg) {{
+                        oImg.scale(0.5);
+                        canvas.add(oImg);
+                    }});
+                </script>
+                """
+
+                st.components.v1.html(canvas_html, height=650)
         else:
             st.write("Please select at least one column for the chart.")
-
