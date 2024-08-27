@@ -36,7 +36,7 @@ def create_chart(columns, df, chart_type):
             st.write("Please select exactly one column for the pie chart.")
     return fig
 
-# Function to convert a Plotly figure to a PIL image
+# Function to convert a Plotly figure to a PNG image
 def fig_to_image(fig):
     img_bytes = pio.to_image(fig, format="png")
     img = Image.open(io.BytesIO(img_bytes))
