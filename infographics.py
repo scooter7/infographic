@@ -27,7 +27,19 @@ def create_chart(instruction, df):
             # Aggregate data for plotting
             data = df.groupby(columns).size().reset_index(name='counts')
             data_pivot = data.pivot(index=columns[0], columns=columns[1], values='counts').fillna(0)
-            data_pivot.plot(kind='bar')
+            
+            # Plotting with improved layout
+            plt.figure(figsize=(10, 6))
+            ax = data_pivot.plot(kind='bar', stacked=False)
+            
+            # Improving the chart aesthetics
+            ax.set_xlabel(columns[0], fontsize=12)
+            ax.set_ylabel('Counts', fontsize=12)
+            ax.set_title(f'Bar Chart of {columns[0]} vs {columns[1]}', fontsize=14)
+            plt.xticks(rotation=45, ha='right')
+            plt.legend(title=columns[1], bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.tight_layout()
+
             st.pyplot(plt)
         else:
             st.write("Please specify exactly two columns for the bar chart.")
@@ -38,7 +50,19 @@ def create_chart(instruction, df):
         if len(columns) == 2:
             data = df.groupby(columns).size().reset_index(name='counts')
             data_pivot = data.pivot(index=columns[0], columns=columns[1], values='counts').fillna(0)
-            data_pivot.plot(kind='line')
+            
+            # Plotting with improved layout
+            plt.figure(figsize=(10, 6))
+            ax = data_pivot.plot(kind='line')
+            
+            # Improving the chart aesthetics
+            ax.set_xlabel(columns[0], fontsize=12)
+            ax.set_ylabel('Counts', fontsize=12)
+            ax.set_title(f'Line Chart of {columns[0]} vs {columns[1]}', fontsize=14)
+            plt.xticks(rotation=45, ha='right')
+            plt.legend(title=columns[1], bbox_to_anchor=(1.05, 1), loc='upper left')
+            plt.tight_layout()
+
             st.pyplot(plt)
         else:
             st.write("Please specify exactly two columns for the line chart.")
