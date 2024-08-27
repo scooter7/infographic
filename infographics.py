@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.io as pio
 import base64
 from io import BytesIO
-from PIL import Image
 
 # Function to create a chart based on user input
 def create_chart(columns, df, chart_type):
@@ -21,6 +20,11 @@ def create_chart(columns, df, chart_type):
     else:
         fig = None
     return fig
+
+# Function to convert Plotly figure to a base64 string
+def fig_to_base64(fig):
+    img_bytes = pio.to_image(fig, format="png")
+    return base64.b64encode(img_bytes).decode()
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -49,19 +53,8 @@ if csv_file:
             if fig:
                 st.plotly_chart(fig)
 
-                # Convert the chart to a static image
-                img_bytes = pio.to_image(fig, format="png")
-
-                # Encode image as base64
-                img_base64 = base64.b64encode(img_bytes).decode()
-
-                # Provide a download button for the image
-                st.download_button(
-                    label="Download Image",
-                    data=img_bytes,
-                    file_name="chart.png",
-                    mime="image/png"
-                )
+                # Convert the chart to a base64 string
+                img_base64 = fig_to_base64(fig)
 
                 # Prepare the canvas with the chart image
                 canvas_html = f"""
