@@ -42,6 +42,18 @@ def create_chart(columns, df, chart_type):
             st.plotly_chart(fig)
         else:
             st.write("Please select exactly two columns for the line chart.")
+    elif chart_type == "Pie Chart":
+        st.write("Generating Pie Chart...")
+        if len(columns) == 1:
+            data = df[columns[0]].value_counts().reset_index()
+            data.columns = [columns[0], 'counts']
+            
+            # Plotly Pie Chart
+            fig = px.pie(data, names=columns[0], values='counts',
+                         title=f'Pie Chart of {columns[0]}')
+            st.plotly_chart(fig)
+        else:
+            st.write("Please select exactly one column for the pie chart.")
     elif chart_type == "Table":
         st.write("Displaying Data Table...")
         st.write(df)
@@ -66,7 +78,7 @@ if csv_file:
             selected_columns.append(column)
 
     # Dropdown to select chart type
-    chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Table"])
+    chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Pie Chart", "Table"])
 
     # Generate chart or table based on selected columns and chart type
     if st.button("Generate Chart/Table"):
