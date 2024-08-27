@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 from io import BytesIO
-from PIL import Image
+import base64
 
 # Function to create a chart based on user input
 def create_chart(columns, df, chart_type):
@@ -20,6 +20,15 @@ def create_chart(columns, df, chart_type):
     else:
         fig = None
     return fig
+
+# Function to convert Plotly figure to a base64 string
+def fig_to_base64(fig):
+    try:
+        img_bytes = pio.to_image(fig, format="png")
+        return base64.b64encode(img_bytes).decode()
+    except Exception as e:
+        st.error(f"Error converting figure to image: {e}")
+        return None
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -48,19 +57,28 @@ if csv_file:
             if fig:
                 st.plotly_chart(fig)
 
-                # Convert the chart to a static image
-                img_bytes = pio.to_image(fig, format="png")
+                # Convert the chart to a base64 string
+                img_base64 = fig_to_base64(fig)
 
-                # Display the static image
-                st.image(img_bytes, caption="Chart as Image", use_column_width=True)
+                if img_base64:
+                    # Display the static image directly in the UI
+                    st.image(f"data:image/png;base64,{img_base64}", caption="Chart as Image", use_column_width=True)
 
-                # Provide a download button for the image
-                st.download_button(
-                    label="Download Image",
-                    data=img_bytes,
-                    file_name="chart.png",
-                    mime="image/png"
-                )
+                    # Prepare the canvas with the chart image
+                    canvas_html = f"""
+                    <canvas id="canvas" width="800" height="600"></canvas>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
+                    <script>
+                        var canvas = new fabric.Canvas('canvas', {{
+                            backgroundColor: '#ffffff'
+                        }});
+                        fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(oImg) {{
+                            oImg.scale(0.5);
+                            canvas.add(oImg);
+                        }});
+                    </script>
+                    """
+
+                    st.components.v1.html(canvas_html, height=650)
         else:
             st.write("Please select at least one column for the chart.")
-
