@@ -18,11 +18,9 @@ def interpret_prompt(prompt, df):
     return response.choices[0].message.content.strip()
 
 # Function to create a chart based on the interpreted instruction
-def create_chart(instruction, df):
-    if "bar chart" in instruction.lower() or "column chart" in instruction.lower():
+def create_chart(columns, df, chart_type):
+    if chart_type == "Bar Chart":
         st.write("Generating Bar Chart...")
-        # Extract columns from the instruction
-        columns = [col for col in df.columns if col in instruction]
         if len(columns) == 2:
             # Aggregate data for plotting
             data = df.groupby(columns).size().reset_index(name='counts')
@@ -32,11 +30,9 @@ def create_chart(instruction, df):
                          title=f'Bar Chart of {columns[0]} vs {columns[1]}')
             st.plotly_chart(fig)
         else:
-            st.write("Please specify exactly two columns for the bar chart.")
-    elif "line chart" in instruction.lower():
+            st.write("Please select exactly two columns for the bar chart.")
+    elif chart_type == "Line Chart":
         st.write("Generating Line Chart...")
-        # Extract columns from the instruction
-        columns = [col for col in df.columns if col in instruction]
         if len(columns) == 2:
             data = df.groupby(columns).size().reset_index(name='counts')
             
@@ -45,8 +41,8 @@ def create_chart(instruction, df):
                           title=f'Line Chart of {columns[0]} vs {columns[1]}')
             st.plotly_chart(fig)
         else:
-            st.write("Please specify exactly two columns for the line chart.")
-    elif "table" in instruction.lower():
+            st.write("Please select exactly two columns for the line chart.")
+    elif chart_type == "Table":
         st.write("Displaying Data Table...")
         st.write(df)
     else:
@@ -62,16 +58,22 @@ if csv_file:
     st.write("Data Preview:")
     st.write(df)
 
-    # Text field for user to input prompt
-    user_prompt = st.text_input("Enter your instruction for creating a chart or table based on the data:")
+    # Allow the user to select columns via checkboxes
+    st.subheader("Select Columns for Chart/Table")
+    selected_columns = []
+    for column in df.columns:
+        if st.checkbox(column):
+            selected_columns.append(column)
 
-    if user_prompt:
-        # Interpret the prompt using GPT-4o-mini
-        instruction = interpret_prompt(user_prompt, df)
-        st.write(f"Interpreted Instruction: {instruction}")
+    # Dropdown to select chart type
+    chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Table"])
 
-        # Generate chart or table based on the interpreted instruction
-        create_chart(instruction, df)
+    # Generate chart or table based on selected columns and chart type
+    if st.button("Generate Chart/Table"):
+        if len(selected_columns) > 0:
+            create_chart(selected_columns, df, chart_type)
+        else:
+            st.write("Please select at least one column for the chart/table.")
 
 # Text field customization for infographic
 st.subheader("Add Text Field")
