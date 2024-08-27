@@ -3,51 +3,42 @@ import pandas as pd
 import plotly.express as px
 import plotly.io as pio
 import base64
-import io
+from io import BytesIO
 from PIL import Image
+import os
 
 # Function to create a chart based on the user's input
 def create_chart(columns, df, chart_type):
     fig = None
     if chart_type == "Bar Chart":
-        st.write("Generating Bar Chart...")
         if len(columns) == 2:
             data = df.groupby(columns).size().reset_index(name='counts')
-            fig = px.bar(data, x=columns[0], y='counts', color=columns[1], barmode='group',
-                         title=f'Bar Chart of {columns[0]} vs {columns[1]}')
+            fig = px.bar(data, x=columns[0], y='counts', color=columns[1], barmode='group')
         else:
             st.write("Please select exactly two columns for the bar chart.")
     elif chart_type == "Line Chart":
-        st.write("Generating Line Chart...")
         if len(columns) == 2:
             data = df.groupby(columns).size().reset_index(name='counts')
-            fig = px.line(data, x=columns[0], y='counts', color=columns[1],
-                          title=f'Line Chart of {columns[0]} vs {columns[1]}')
+            fig = px.line(data, x=columns[0], y='counts', color=columns[1])
         else:
             st.write("Please select exactly two columns for the line chart.")
     elif chart_type == "Pie Chart":
-        st.write("Generating Pie Chart...")
         if len(columns) == 1:
             data = df[columns[0]].value_counts().reset_index()
             data.columns = [columns[0], 'counts']
-            fig = px.pie(data, names=columns[0], values='counts',
-                         title=f'Pie Chart of {columns[0]}')
+            fig = px.pie(data, names=columns[0], values='counts')
         else:
             st.write("Please select exactly one column for the pie chart.")
     return fig
 
-# Function to convert Plotly figure to a PNG image and save it locally
-def save_chart_as_image(fig, filename="chart.png"):
+# Function to save Plotly figure as an image and convert to base64
+def save_chart_as_image(fig):
     img_bytes = pio.to_image(fig, format="png")
-    with open(filename, "wb") as f:
-        f.write(img_bytes)
-    return filename
-
-# Function to convert an image to a base64 string
-def image_to_base64(image_path):
-    with open(image_path, "rb") as img_file:
-        img_bytes = img_file.read()
-        return base64.b64encode(img_bytes).decode()
+    image = Image.open(BytesIO(img_bytes))
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    img_base64 = base64.b64encode(buffered.getvalue()).decode()
+    return img_base64
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -81,18 +72,18 @@ if csv_file:
 
     # Button to save chart as image and place on canvas
     if fig and st.button("Save Chart as Image"):
-        image_path = save_chart_as_image(fig)
-        img_str = image_to_base64(image_path)
+        img_base64 = save_chart_as_image(fig)
 
+        # Add the image to the canvas with draggable and resizable functionalities
         canvas_html = f"""
         <canvas id="canvas" width="800" height="600"></canvas>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
         <script>
             var canvas = new fabric.Canvas('canvas');
-            fabric.Image.fromURL('data:image/png;base64,{img_str}', function(img) {{
+            fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(img) {{
                 img.set({{
-                    left: 100,
-                    top: 100,
+                    left: 50,
+                    top: 50,
                     angle: 0,
                     padding: 10,
                     cornersize: 10,
