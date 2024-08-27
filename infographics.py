@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import openai
 import plotly.express as px
+import base64
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
@@ -75,73 +76,89 @@ if csv_file:
     chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Pie Chart", "Table"])
 
     # Generate chart or table based on selected columns and chart type
+    chart_image = None
     if st.button("Generate Chart/Table"):
         if len(selected_columns) > 0:
             chart_image = create_chart(selected_columns, df, chart_type)
             if chart_image:
                 # Convert the image to a base64 string
                 chart_base64 = base64.b64encode(chart_image).decode("utf-8")
-                # JavaScript & HTML for Fabric.js integration
-                st.subheader("Infographic Canvas")
-                st.write("Drag elements around the canvas, resize and position them as needed.")
-                
-                canvas_html = f"""
-                <canvas id="canvas"></canvas>
-                <button onclick="saveCanvas()">Save Project</button>
-
-                <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
-                <script>
-                  var canvas = new fabric.Canvas('canvas');
-                  canvas.setWidth(800);
-                  canvas.setHeight(600);
-                  fabric.Image.fromURL('data:image/png;base64,{chart_base64}', function(img) {{
-                      img.set({{
-                          left: 50,
-                          top: 50,
-                          angle: 0,
-                          padding: 10,
-                          cornersize: 10
-                      }});
-                      canvas.add(img);
-                  }});
-                  
-                  function saveCanvas() {{
-                    var canvas_json = JSON.stringify(canvas);
-                    var data_uri = 'data:text/json;base64,' + btoa(canvas_json);
-                    var link = document.createElement('a');
-                    link.setAttribute('href', data_uri);
-                    link.setAttribute('download', 'project.json');
-                    link.click();
-                  }}
-                </script>
-                """
-                # Display the canvas with elements
-                st.components.v1.html(canvas_html, height=650, scrolling=False)
+                st.write("Chart created successfully.")
         else:
             st.write("Please select at least one column for the chart/table.")
 
-# Text field customization for infographic
-st.subheader("Add Text Field")
-text_input = st.text_input("Enter text")
-font_size = st.slider("Font Size", 10, 100, 30)
-font_color = st.color_picker("Font Color", "#000000")
-bg_color = st.color_picker("Background Color", "#FFFFFF")
-bg_shape = st.selectbox("Background Shape", ["Rectangle", "Pill"])
+    # JavaScript & HTML for Fabric.js integration
+    st.subheader("Infographic Canvas")
+    st.write("Drag elements around the canvas, resize and position them as needed.")
 
-# Additional Fabric.js integration for text
-canvas_html += f"""
-<script>
-  canvas.add(new fabric.Text('{text_input}', {{
-    left: 100,
-    top: 100,
-    fontSize: {font_size},
-    fill: '{font_color}',
-    backgroundColor: '{bg_color}',
-    padding: 10,
-    {('borderRadius: 50%;' if bg_shape == 'Pill' else '')}
-  }}));
-</script>
-"""
+    # Initialize canvas
+    canvas_init = """
+    <script>
+      var canvas = new fabric.Canvas('canvas');
+      canvas.setWidth(800);
+      canvas.setHeight(600);
+    </script>
+    """
+
+    # Fabric.js canvas HTML
+    canvas_html = f"""
+    <canvas id="canvas"></canvas>
+    <button onclick="saveCanvas()">Save Project</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
+    {canvas_init}
+    """
+
+    if chart_image:
+        canvas_html += f"""
+        <script>
+          fabric.Image.fromURL('data:image/png;base64,{chart_base64}', function(img) {{
+              img.set({{
+                  left: 50,
+                  top: 50,
+                  angle: 0,
+                  padding: 10,
+                  cornersize: 10
+              }});
+              canvas.add(img);
+          }});
+          
+          function saveCanvas() {{
+            var canvas_json = JSON.stringify(canvas);
+            var data_uri = 'data:text/json;base64,' + btoa(canvas_json);
+            var link = document.createElement('a');
+            link.setAttribute('href', data_uri);
+            link.setAttribute('download', 'project.json');
+            link.click();
+          }}
+        </script>
+        """
+
+    # Text field customization for infographic
+    st.subheader("Add Text Field")
+    text_input = st.text_input("Enter text")
+    font_size = st.slider("Font Size", 10, 100, 30)
+    font_color = st.color_picker("Font Color", "#000000")
+    bg_color = st.color_picker("Background Color", "#FFFFFF")
+    bg_shape = st.selectbox("Background Shape", ["Rectangle", "Pill"])
+
+    # Add text customization to canvas
+    canvas_html += f"""
+    <script>
+      canvas.add(new fabric.Text('{text_input}', {{
+        left: 100,
+        top: 100,
+        fontSize: {font_size},
+        fill: '{font_color}',
+        backgroundColor: '{bg_color}',
+        padding: 10,
+        {('borderRadius: 50%;' if bg_shape == 'Pill' else '')}
+      }}));
+    </script>
+    """
+
+    # Display the canvas with elements
+    st.components.v1.html(canvas_html, height=650, scrolling=False)
 
 # Save project button
 if st.button("Save Project"):
