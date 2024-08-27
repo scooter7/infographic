@@ -4,6 +4,7 @@ import plotly.express as px
 from PIL import Image
 import plotly.io as pio
 import io
+import base64
 
 # Function to create a chart based on the user's input
 def create_chart(columns, df, chart_type):
@@ -34,6 +35,12 @@ def create_chart(columns, df, chart_type):
         else:
             st.write("Please select exactly one column for the pie chart.")
     return fig
+
+# Function to convert a Plotly figure to a base64-encoded PNG image
+def fig_to_base64(fig):
+    img_bytes = pio.to_image(fig, format="png")
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+    return img_base64
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -67,21 +74,14 @@ if csv_file:
 
     # Button to save chart as image and place on canvas
     if fig and st.button("Save Chart as Image"):
-        # Save the chart as an image
-        img_bytes = io.BytesIO()
-        pio.write_image(fig, img_bytes, format='png')
-        img_bytes.seek(0)
-        image = Image.open(img_bytes)
-        
-        # Display the image on a canvas with drag-and-drop functionality
-        st.write("Drag the image around to position it.")
+        img_base64 = fig_to_base64(fig)
         
         canvas_html = f"""
         <canvas id="canvas" width="800" height="600"></canvas>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
         <script>
             var canvas = new fabric.Canvas('canvas');
-            fabric.Image.fromURL('data:image/png;base64,{image_to_base64(image)}', function(img) {{
+            fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(img) {{
                 img.set({{
                     left: 100,
                     top: 100,
@@ -95,9 +95,4 @@ if csv_file:
         """
 
         st.components.v1.html(canvas_html, height=650, scrolling=False)
-
-def image_to_base64(image: Image.Image) -> str:
-    buffered = io.BytesIO()
-    image.save(buffered, format="PNG")
-    return buffered.getvalue().decode("latin1")
 
