@@ -74,6 +74,14 @@ if csv_file:
                         }});
                         fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(oImg) {{
                             oImg.scale(0.5);
+                            oImg.set({{
+                                left: 100,
+                                top: 100,
+                                selectable: true,
+                                hasControls: true,
+                                hasBorders: true,
+                                lockScalingFlip: true
+                            }});
                             canvas.add(oImg);
                         }});
                     </script>
