@@ -36,11 +36,18 @@ def create_chart(columns, df, chart_type):
             st.write("Please select exactly one column for the pie chart.")
     return fig
 
-# Function to convert a Plotly figure to a PNG image
-def fig_to_image(fig):
+# Function to convert Plotly figure to a PNG image and save it locally
+def save_chart_as_image(fig, filename="chart.png"):
     img_bytes = pio.to_image(fig, format="png")
-    img = Image.open(io.BytesIO(img_bytes))
-    return img
+    with open(filename, "wb") as f:
+        f.write(img_bytes)
+    return filename
+
+# Function to convert an image to a base64 string
+def image_to_base64(image_path):
+    with open(image_path, "rb") as img_file:
+        img_bytes = img_file.read()
+        return base64.b64encode(img_bytes).decode()
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -74,10 +81,8 @@ if csv_file:
 
     # Button to save chart as image and place on canvas
     if fig and st.button("Save Chart as Image"):
-        img = fig_to_image(fig)
-        buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
-        img_str = base64.b64encode(buffer.getvalue()).decode()
+        image_path = save_chart_as_image(fig)
+        img_str = image_to_base64(image_path)
 
         canvas_html = f"""
         <canvas id="canvas" width="800" height="600"></canvas>
