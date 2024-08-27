@@ -1,44 +1,27 @@
 import streamlit as st
 import pandas as pd
-import openai
 import plotly.express as px
+from PIL import Image
+import plotly.io as pio
+import io
 
-# Load OpenAI API key from secrets
-client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
-
-# Function to generate content using GPT-4o-mini
-def interpret_prompt(prompt, df):
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "user", "content": f"Based on the following data: {df.head().to_string()}, {prompt}. Just provide the chart type and the columns to be used."}
-        ]
-    )
-    return response.choices[0].message.content.strip()
-
-# Function to create a chart based on the interpreted instruction
+# Function to create a chart based on the user's input
 def create_chart(columns, df, chart_type):
+    fig = None
     if chart_type == "Bar Chart":
         st.write("Generating Bar Chart...")
         if len(columns) == 2:
-            # Aggregate data for plotting
             data = df.groupby(columns).size().reset_index(name='counts')
-            
-            # Plotly Bar Chart
             fig = px.bar(data, x=columns[0], y='counts', color=columns[1], barmode='group',
                          title=f'Bar Chart of {columns[0]} vs {columns[1]}')
-            st.plotly_chart(fig)
         else:
             st.write("Please select exactly two columns for the bar chart.")
     elif chart_type == "Line Chart":
         st.write("Generating Line Chart...")
         if len(columns) == 2:
             data = df.groupby(columns).size().reset_index(name='counts')
-            
-            # Plotly Line Chart
             fig = px.line(data, x=columns[0], y='counts', color=columns[1],
                           title=f'Line Chart of {columns[0]} vs {columns[1]}')
-            st.plotly_chart(fig)
         else:
             st.write("Please select exactly two columns for the line chart.")
     elif chart_type == "Pie Chart":
@@ -46,18 +29,11 @@ def create_chart(columns, df, chart_type):
         if len(columns) == 1:
             data = df[columns[0]].value_counts().reset_index()
             data.columns = [columns[0], 'counts']
-            
-            # Plotly Pie Chart
             fig = px.pie(data, names=columns[0], values='counts',
                          title=f'Pie Chart of {columns[0]}')
-            st.plotly_chart(fig)
         else:
             st.write("Please select exactly one column for the pie chart.")
-    elif chart_type == "Table":
-        st.write("Displaying Data Table...")
-        st.write(df)
-    else:
-        st.write("Sorry, I couldn't interpret the instruction. Please try another prompt.")
+    return fig
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -80,13 +56,48 @@ if csv_file:
     chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Pie Chart", "Table"])
 
     # Generate chart or table based on selected columns and chart type
+    fig = None
     if st.button("Generate Chart/Table"):
         if len(selected_columns) > 0:
-            create_chart(selected_columns, df, chart_type)
+            fig = create_chart(selected_columns, df, chart_type)
+            if fig:
+                st.plotly_chart(fig)
         else:
             st.write("Please select at least one column for the chart/table.")
 
-# Button to save chart as image and place on canvas
-if st.button("Save Chart as Image"):
-    # Code to save the chart as an image and place on the canvas
-    st.write("This functionality is coming soon...")
+    # Button to save chart as image and place on canvas
+    if fig and st.button("Save Chart as Image"):
+        # Save the chart as an image
+        img_bytes = io.BytesIO()
+        pio.write_image(fig, img_bytes, format='png')
+        img_bytes.seek(0)
+        image = Image.open(img_bytes)
+        
+        # Display the image on a canvas with drag-and-drop functionality
+        st.write("Drag the image around to position it.")
+        
+        canvas_html = f"""
+        <canvas id="canvas" width="800" height="600"></canvas>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
+        <script>
+            var canvas = new fabric.Canvas('canvas');
+            fabric.Image.fromURL('data:image/png;base64,{image_to_base64(image)}', function(img) {{
+                img.set({{
+                    left: 100,
+                    top: 100,
+                    angle: 0,
+                    padding: 10,
+                    cornersize: 10
+                }});
+                canvas.add(img);
+            }});
+        </script>
+        """
+
+        st.components.v1.html(canvas_html, height=650, scrolling=False)
+
+def image_to_base64(image: Image.Image) -> str:
+    buffered = io.BytesIO()
+    image.save(buffered, format="PNG")
+    return buffered.getvalue().decode("latin1")
+
