@@ -6,6 +6,8 @@ import plotly.express as px
 import plotly.io as pio
 import io
 from PIL import Image
+import base64  # Import base64 module
+import kaleido  # Ensure kaleido is installed
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
