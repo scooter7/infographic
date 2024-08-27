@@ -12,23 +12,34 @@ def interpret_prompt(prompt, df):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "user", "content": f"Based on the following data: {df.head().to_string()}, {prompt}"}
+            {"role": "user", "content": f"Based on the following data: {df.head().to_string()}, {prompt}. Just provide the chart type and the columns to be used."}
         ]
     )
     return response.choices[0].message.content.strip()
 
-# Function to create a chart or table based on the interpreted instruction
-def create_chart_or_table(instruction, df):
-    if "bar chart" in instruction.lower():
+# Function to create a chart based on the interpreted instruction
+def create_chart(instruction, df):
+    if "bar chart" in instruction.lower() or "column chart" in instruction.lower():
         st.write("Generating Bar Chart...")
-        plt.figure(figsize=(10, 6))
-        df.plot(kind='bar')
-        st.pyplot(plt)
+        # Extract columns from the instruction
+        columns = [col for col in df.columns if col in instruction]
+        if columns:
+            # Aggregate data if necessary
+            data = df.groupby(columns).size().unstack().fillna(0)
+            data.plot(kind='bar')
+            st.pyplot(plt)
+        else:
+            st.write("Sorry, I couldn't find the appropriate columns in the data. Please try another prompt.")
     elif "line chart" in instruction.lower():
         st.write("Generating Line Chart...")
-        plt.figure(figsize=(10, 6))
-        df.plot(kind='line')
-        st.pyplot(plt)
+        # Extract columns from the instruction
+        columns = [col for col in df.columns if col in instruction]
+        if columns:
+            data = df.groupby(columns).size().unstack().fillna(0)
+            data.plot(kind='line')
+            st.pyplot(plt)
+        else:
+            st.write("Sorry, I couldn't find the appropriate columns in the data. Please try another prompt.")
     elif "table" in instruction.lower():
         st.write("Displaying Data Table...")
         st.write(df)
@@ -54,7 +65,7 @@ if csv_file:
         st.write(f"Interpreted Instruction: {instruction}")
 
         # Generate chart or table based on the interpreted instruction
-        create_chart_or_table(instruction, df)
+        create_chart(instruction, df)
 
 # Text field customization for infographic
 st.subheader("Add Text Field")
