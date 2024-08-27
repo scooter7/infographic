@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import openai
 import json
-import matplotlib.pyplot as plt
+import plotly.express as px
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
@@ -26,21 +26,11 @@ def create_chart(instruction, df):
         if len(columns) == 2:
             # Aggregate data for plotting
             data = df.groupby(columns).size().reset_index(name='counts')
-            data_pivot = data.pivot(index=columns[0], columns=columns[1], values='counts').fillna(0)
             
-            # Plotting with improved layout
-            plt.figure(figsize=(10, 6))
-            ax = data_pivot.plot(kind='bar', stacked=False)
-            
-            # Improving the chart aesthetics
-            ax.set_xlabel(columns[0], fontsize=12)
-            ax.set_ylabel('Counts', fontsize=12)
-            ax.set_title(f'Bar Chart of {columns[0]} vs {columns[1]}', fontsize=14)
-            plt.xticks(rotation=45, ha='right')
-            plt.legend(title=columns[1], bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.tight_layout()
-
-            st.pyplot(plt)
+            # Plotly Bar Chart
+            fig = px.bar(data, x=columns[0], y='counts', color=columns[1], barmode='group',
+                         title=f'Bar Chart of {columns[0]} vs {columns[1]}')
+            st.plotly_chart(fig)
         else:
             st.write("Please specify exactly two columns for the bar chart.")
     elif "line chart" in instruction.lower():
@@ -49,21 +39,11 @@ def create_chart(instruction, df):
         columns = [col for col in df.columns if col in instruction]
         if len(columns) == 2:
             data = df.groupby(columns).size().reset_index(name='counts')
-            data_pivot = data.pivot(index=columns[0], columns=columns[1], values='counts').fillna(0)
             
-            # Plotting with improved layout
-            plt.figure(figsize=(10, 6))
-            ax = data_pivot.plot(kind='line')
-            
-            # Improving the chart aesthetics
-            ax.set_xlabel(columns[0], fontsize=12)
-            ax.set_ylabel('Counts', fontsize=12)
-            ax.set_title(f'Line Chart of {columns[0]} vs {columns[1]}', fontsize=14)
-            plt.xticks(rotation=45, ha='right')
-            plt.legend(title=columns[1], bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.tight_layout()
-
-            st.pyplot(plt)
+            # Plotly Line Chart
+            fig = px.line(data, x=columns[0], y='counts', color=columns[1],
+                          title=f'Line Chart of {columns[0]} vs {columns[1]}')
+            st.plotly_chart(fig)
         else:
             st.write("Please specify exactly two columns for the line chart.")
     elif "table" in instruction.lower():
