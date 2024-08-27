@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import openai
 import plotly.express as px
+import io
+from PIL import Image
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
@@ -82,6 +84,44 @@ if csv_file:
         if len(selected_columns) > 0:
             fig = create_chart(selected_columns, df, chart_type)
             if fig:
-                st.plotly_chart(fig)  # Display the chart directly in Streamlit
+                # Convert Plotly figure to image
+                img_bytes = fig.to_image(format="png")
+                st.image(img_bytes)  # Display image directly in Streamlit
+
+                # Convert to PIL Image for Fabric.js
+                image = Image.open(io.BytesIO(img_bytes))
+                image.save('chart_image.png')
+
+                # Display the canvas with the image embedded
+                canvas_html = f"""
+                <canvas id="canvas"></canvas>
+                <button onclick="saveCanvas()">Save Project</button>
+
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
+
+                <script>
+                    var canvas = new fabric.Canvas('canvas');
+                    fabric.Image.fromURL('chart_image.png', function(img) {{
+                        img.set({{
+                            left: 100,
+                            top: 100,
+                            angle: 0,
+                            padding: 10,
+                            cornersize: 10
+                        }});
+                        canvas.add(img).renderAll();
+                    }});
+
+                    function saveCanvas() {{
+                        var canvas_json = JSON.stringify(canvas);
+                        var data_uri = 'data:text/json;base64,' + btoa(canvas_json);
+                        var link = document.createElement('a');
+                        link.setAttribute('href', data_uri);
+                        link.setAttribute('download', 'project.json');
+                        link.click();
+                    }}
+                </script>
+                """
+                st.components.v1.html(canvas_html, height=650, scrolling=False)
         else:
             st.write("Please select at least one column for the chart/table.")
