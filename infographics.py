@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from PIL import Image
 import plotly.io as pio
-import io
 import base64
+import io
+from PIL import Image
 
 # Function to create a chart based on the user's input
 def create_chart(columns, df, chart_type):
@@ -36,11 +36,11 @@ def create_chart(columns, df, chart_type):
             st.write("Please select exactly one column for the pie chart.")
     return fig
 
-# Function to convert a Plotly figure to a base64-encoded PNG image
-def fig_to_base64(fig):
+# Function to convert a Plotly figure to a PIL image
+def fig_to_image(fig):
     img_bytes = pio.to_image(fig, format="png")
-    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
-    return img_base64
+    img = Image.open(io.BytesIO(img_bytes))
+    return img
 
 # Streamlit UI
 st.title("Infographic Creator")
@@ -74,20 +74,25 @@ if csv_file:
 
     # Button to save chart as image and place on canvas
     if fig and st.button("Save Chart as Image"):
-        img_base64 = fig_to_base64(fig)
-        
+        img = fig_to_image(fig)
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+
         canvas_html = f"""
         <canvas id="canvas" width="800" height="600"></canvas>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
         <script>
             var canvas = new fabric.Canvas('canvas');
-            fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(img) {{
+            fabric.Image.fromURL('data:image/png;base64,{img_str}', function(img) {{
                 img.set({{
                     left: 100,
                     top: 100,
                     angle: 0,
                     padding: 10,
-                    cornersize: 10
+                    cornersize: 10,
+                    hasControls: true,
+                    hasBorders: true
                 }});
                 canvas.add(img);
             }});
@@ -95,4 +100,3 @@ if csv_file:
         """
 
         st.components.v1.html(canvas_html, height=650, scrolling=False)
-
