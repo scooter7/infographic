@@ -3,6 +3,7 @@ import pandas as pd
 import openai
 import plotly.express as px
 import base64
+from io import BytesIO
 
 # Load OpenAI API key from secrets
 client = openai.OpenAI(api_key=st.secrets["openai_api_key"])
@@ -25,7 +26,10 @@ def create_chart(columns, df, chart_type):
             data = df.groupby(columns).size().reset_index(name='counts')
             fig = px.bar(data, x=columns[0], y='counts', color=columns[1], barmode='group',
                          title=f'Bar Chart of {columns[0]} vs {columns[1]}')
-            return fig.to_image(format="png")
+            buf = BytesIO()
+            fig.write_image(buf, format="png")
+            buf.seek(0)
+            return base64.b64encode(buf.read()).decode("utf-8")
         else:
             st.write("Please select exactly two columns for the bar chart.")
     elif chart_type == "Line Chart":
@@ -34,7 +38,10 @@ def create_chart(columns, df, chart_type):
             data = df.groupby(columns).size().reset_index(name='counts')
             fig = px.line(data, x=columns[0], y='counts', color=columns[1],
                           title=f'Line Chart of {columns[0]} vs {columns[1]}')
-            return fig.to_image(format="png")
+            buf = BytesIO()
+            fig.write_image(buf, format="png")
+            buf.seek(0)
+            return base64.b64encode(buf.read()).decode("utf-8")
         else:
             st.write("Please select exactly two columns for the line chart.")
     elif chart_type == "Pie Chart":
@@ -44,7 +51,10 @@ def create_chart(columns, df, chart_type):
             data.columns = [columns[0], 'counts']
             fig = px.pie(data, names=columns[0], values='counts',
                          title=f'Pie Chart of {columns[0]}')
-            return fig.to_image(format="png")
+            buf = BytesIO()
+            fig.write_image(buf, format="png")
+            buf.seek(0)
+            return base64.b64encode(buf.read()).decode("utf-8")
         else:
             st.write("Please select exactly one column for the pie chart.")
     elif chart_type == "Table":
@@ -76,14 +86,14 @@ if csv_file:
     chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Pie Chart", "Table"])
 
     # Generate chart or table based on selected columns and chart type
-    chart_image = None
+    chart_base64 = None
     if st.button("Generate Chart/Table"):
         if len(selected_columns) > 0:
-            chart_image = create_chart(selected_columns, df, chart_type)
-            if chart_image:
-                # Convert the image to a base64 string
-                chart_base64 = base64.b64encode(chart_image).decode("utf-8")
+            chart_base64 = create_chart(selected_columns, df, chart_type)
+            if chart_base64:
                 st.write("Chart created successfully.")
+            else:
+                st.write("No chart image to display.")
         else:
             st.write("Please select at least one column for the chart/table.")
 
@@ -109,7 +119,7 @@ if csv_file:
     {canvas_init}
     """
 
-    if chart_image:
+    if chart_base64:
         canvas_html += f"""
         <script>
           fabric.Image.fromURL('data:image/png;base64,{chart_base64}', function(img) {{
