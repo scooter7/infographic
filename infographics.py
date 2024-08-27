@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.io as pio
-import base64
 from io import BytesIO
+import base64
 
 # Function to create a chart based on user input
 def create_chart(columns, df, chart_type):
