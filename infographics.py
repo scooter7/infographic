@@ -23,23 +23,25 @@ def create_chart(instruction, df):
         st.write("Generating Bar Chart...")
         # Extract columns from the instruction
         columns = [col for col in df.columns if col in instruction]
-        if columns:
-            # Aggregate data if necessary
-            data = df.groupby(columns).size().unstack().fillna(0)
-            data.plot(kind='bar')
+        if len(columns) == 2:
+            # Aggregate data for plotting
+            data = df.groupby(columns).size().reset_index(name='counts')
+            data_pivot = data.pivot(index=columns[0], columns=columns[1], values='counts').fillna(0)
+            data_pivot.plot(kind='bar')
             st.pyplot(plt)
         else:
-            st.write("Sorry, I couldn't find the appropriate columns in the data. Please try another prompt.")
+            st.write("Please specify exactly two columns for the bar chart.")
     elif "line chart" in instruction.lower():
         st.write("Generating Line Chart...")
         # Extract columns from the instruction
         columns = [col for col in df.columns if col in instruction]
-        if columns:
-            data = df.groupby(columns).size().unstack().fillna(0)
-            data.plot(kind='line')
+        if len(columns) == 2:
+            data = df.groupby(columns).size().reset_index(name='counts')
+            data_pivot = data.pivot(index=columns[0], columns=columns[1], values='counts').fillna(0)
+            data_pivot.plot(kind='line')
             st.pyplot(plt)
         else:
-            st.write("Sorry, I couldn't find the appropriate columns in the data. Please try another prompt.")
+            st.write("Please specify exactly two columns for the line chart.")
     elif "table" in instruction.lower():
         st.write("Displaying Data Table...")
         st.write(df)
