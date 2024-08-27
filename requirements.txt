@@ -4,3 +4,4 @@ openai
 Pillow
 matplotlib
 plotly
+kaleido
