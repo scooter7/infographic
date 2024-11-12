@@ -26,7 +26,7 @@ if uploaded_file:
 st.write("### Describe Your Visualization")
 user_input = st.text_input("Describe the type of visualization you want to create:")
 if user_input and uploaded_file:
-    response = openai.Completion.create(
+    response = openai.chat.completions.create(
         engine="text-davinci-003",
         prompt=f"Generate a visualization idea based on this description: {user_input}",
         max_tokens=100
