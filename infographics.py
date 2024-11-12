@@ -25,8 +25,8 @@ if uploaded_file:
 st.write("### Describe Your Visualization")
 user_input = st.text_input("Describe the type of visualization you want to create:")
 if user_input and uploaded_file:
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
+    response = openai.chat.completions.create(
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": f"Generate a visualization idea based on this description: {user_input}"}],
         max_tokens=100
     )
