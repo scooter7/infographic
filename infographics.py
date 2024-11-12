@@ -4,6 +4,7 @@ import openai
 import streamlit.components.v1 as components
 import plotly.express as px
 import io
+import base64
 from PIL import Image
 
 # Load OpenAI API key from Streamlit secrets
@@ -52,13 +53,13 @@ if user_input and uploaded_file:
         img_buffer = io.BytesIO()
         fig.write_image(img_buffer, format="png")
         img_buffer.seek(0)
-        img = Image.open(img_buffer)
         
-        # Display the chart in Streamlit
-        st.image(img, caption="Generated Chart")
-        
-        # Convert the image to a data URL to load in Fabric.js
-        chart_img_url = "data:image/png;base64," + st.image_to_url(img, use_column_width=True, output_format="png")
+        # Convert image to base64 string
+        img_base64 = base64.b64encode(img_buffer.read()).decode("utf-8")
+        chart_img_url = f"data:image/png;base64,{img_base64}"
+
+        # Display the chart in Streamlit for reference
+        st.image(Image.open(io.BytesIO(base64.b64decode(img_base64))), caption="Generated Chart")
 
     except Exception as e:
         st.write("Error creating chart:", e)
