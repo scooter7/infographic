@@ -55,9 +55,9 @@ if user_input and uploaded_file:
             else:
                 fig = px.histogram(data, x=data.columns[0], color_discrete_sequence=[chart_color])
 
-            # Save the Plotly chart as a PNG image
+            # Save the Plotly chart as a high-resolution PNG image
             img_buffer = io.BytesIO()
-            fig.write_image(img_buffer, format="png")
+            fig.write_image(img_buffer, format="png", width=1200, height=800, scale=2)
             img_buffer.seek(0)
             
             # Convert image to base64 string
