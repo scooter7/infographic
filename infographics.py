@@ -3,6 +3,8 @@ import pandas as pd
 import openai
 import streamlit.components.v1 as components
 import plotly.express as px
+import io
+from PIL import Image
 
 # Load OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
@@ -24,6 +26,8 @@ if uploaded_file:
 # Step 2: Process Natural Language for Visualization
 st.write("### Describe Your Visualization")
 user_input = st.text_input("Describe the type of visualization you want to create:")
+chart_img_url = None  # Initialize chart image URL for Fabric.js
+
 if user_input and uploaded_file:
     response = openai.chat.completions.create(
         model="gpt-4",
@@ -33,7 +37,7 @@ if user_input and uploaded_file:
     chart_suggestion = response.choices[0].message.content.strip()
     st.write("**Suggested Chart**:", chart_suggestion)
 
-    # Example: Generate a basic Plotly visualization based on suggestion (simplified example)
+    # Example: Generate a basic Plotly visualization based on suggestion
     try:
         if "bar" in chart_suggestion.lower():
             fig = px.bar(data, x=data.columns[0], y=data.columns[1])
@@ -44,7 +48,18 @@ if user_input and uploaded_file:
         else:
             fig = px.histogram(data, x=data.columns[0])
 
-        st.plotly_chart(fig)
+        # Save the Plotly chart as a PNG image
+        img_buffer = io.BytesIO()
+        fig.write_image(img_buffer, format="png")
+        img_buffer.seek(0)
+        img = Image.open(img_buffer)
+        
+        # Display the chart in Streamlit
+        st.image(img, caption="Generated Chart")
+        
+        # Convert the image to a data URL to load in Fabric.js
+        chart_img_url = "data:image/png;base64," + st.image_to_url(img, use_column_width=True, output_format="png")
+
     except Exception as e:
         st.write("Error creating chart:", e)
 
@@ -52,45 +67,47 @@ if user_input and uploaded_file:
 st.write("### Customize Your Infographic")
 
 # Define Fabric.js canvas setup with JavaScript for interactive elements
-canvas_html = """
+canvas_html = f"""
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.0/fabric.min.js"></script>
 <canvas id="canvas" width="800" height="600" style="border:1px solid #000000;"></canvas>
 <script>
 var canvas = new fabric.Canvas('canvas');
 
-// Function to add a Plotly chart as an image (placeholder image for now)
-fabric.Image.fromURL('https://via.placeholder.com/400x300', function(img) {
-    img.set({
-        left: 100,
-        top: 100,
-        selectable: true
-    });
-    canvas.add(img);
-});
+// Function to add Plotly chart image to the canvas if available
+if ("{chart_img_url}") {{
+    fabric.Image.fromURL("{chart_img_url}", function(img) {{
+        img.set({{
+            left: 100,
+            top: 100,
+            selectable: true
+        }});
+        canvas.add(img);
+    }});
+}}
 
 // Add text to the canvas
-function addText() {
-    var text = new fabric.Textbox('Add your text here', {
+function addText() {{
+    var text = new fabric.Textbox('Add your text here', {{
         left: 50,
         top: 50,
         fontSize: 20,
         fill: '#333'
-    });
+    }});
     canvas.add(text);
-}
+}}
 
 // Add buttons to add text and save canvas
 document.getElementById("addTextButton").onclick = addText;
 
-function saveCanvasAsImage() {
+function saveCanvasAsImage() {{
     var link = document.createElement('a');
-    link.href = canvas.toDataURL({
+    link.href = canvas.toDataURL({{
         format: 'png',
         multiplier: 2
-    });
+    }});
     link.download = 'infographic.png';
     link.click();
-}
+}}
 </script>
 <button id="addTextButton">Add Text</button>
 <button onclick="saveCanvasAsImage()">Download Infographic</button>
