@@ -3,3 +3,5 @@ pandas
 openai
 plotly
 kaleido
+orca
+Pillow
