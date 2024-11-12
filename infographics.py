@@ -1,92 +1,101 @@
 import streamlit as st
 import pandas as pd
+import openai
+import streamlit.components.v1 as components
 import plotly.express as px
-import plotly.io as pio
-from io import BytesIO
-import base64
+import io
 
-# Function to create a chart based on user input
-def create_chart(columns, df, chart_type):
-    if chart_type == "Bar Chart":
-        data = df.groupby(columns).size().reset_index(name='counts')
-        fig = px.bar(data, x=columns[0], y='counts', color=columns[1] if len(columns) > 1 else None)
-    elif chart_type == "Line Chart":
-        data = df.groupby(columns).size().reset_index(name='counts')
-        fig = px.line(data, x=columns[0], y='counts', color=columns[1] if len(columns) > 1 else None)
-    elif chart_type == "Pie Chart":
-        data = df[columns[0]].value_counts().reset_index()
-        data.columns = [columns[0], 'counts']
-        fig = px.pie(data, names=columns[0], values='counts')
+# Load OpenAI API key from Streamlit secrets
+openai.api_key = st.secrets["openai_api_key"]
+
+# Set up the app title and instructions
+st.title("AI-Powered Infographic Creator")
+st.write("Upload a CSV or Excel file, describe the visualization you want, and arrange elements on a canvas to create an infographic.")
+
+# Step 1: Upload and Display CSV/Excel Data
+uploaded_file = st.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx"])
+if uploaded_file:
+    if uploaded_file.name.endswith("csv"):
+        data = pd.read_csv(uploaded_file)
     else:
-        fig = None
-    return fig
+        data = pd.read_excel(uploaded_file)
+    st.write("### Uploaded Data")
+    st.write(data)
 
-# Function to convert Plotly figure to a base64 string
-def fig_to_base64(fig):
+# Step 2: Process Natural Language for Visualization
+st.write("### Describe Your Visualization")
+user_input = st.text_input("Describe the type of visualization you want to create:")
+if user_input and uploaded_file:
+    response = openai.Completion.create(
+        engine="text-davinci-003",
+        prompt=f"Generate a visualization idea based on this description: {user_input}",
+        max_tokens=100
+    )
+    chart_suggestion = response["choices"][0]["text"].strip()
+    st.write("**Suggested Chart**:", chart_suggestion)
+
+    # Example: Generate a basic Plotly visualization based on suggestion (simplified example)
     try:
-        img_bytes = pio.to_image(fig, format="png")
-        return base64.b64encode(img_bytes).decode()
-    except Exception as e:
-        st.error(f"Error converting figure to image: {e}")
-        return None
-
-# Streamlit UI
-st.title("Infographic Creator")
-
-# Upload CSV file
-csv_file = st.file_uploader("Upload CSV", type=["csv"])
-if csv_file:
-    df = pd.read_csv(csv_file)
-    st.write("Data Preview:")
-    st.write(df)
-
-    # Allow the user to select columns via checkboxes
-    st.subheader("Select Columns for Chart/Table")
-    selected_columns = []
-    for column in df.columns:
-        if st.checkbox(column):
-            selected_columns.append(column)
-
-    # Dropdown to select chart type
-    chart_type = st.selectbox("Select Chart Type", ["Bar Chart", "Line Chart", "Pie Chart"])
-
-    # Generate and display the chart
-    if st.button("Generate Chart"):
-        if len(selected_columns) > 0:
-            fig = create_chart(selected_columns, df, chart_type)
-            if fig:
-                st.plotly_chart(fig)
-
-                # Convert the chart to a base64 string
-                img_base64 = fig_to_base64(fig)
-
-                if img_base64:
-                    # Display the static image directly in the UI
-                    st.image(f"data:image/png;base64,{img_base64}", caption="Chart as Image", use_column_width=True)
-
-                    # Prepare the canvas with the chart image
-                    canvas_html = f"""
-                    <canvas id="canvas" width="800" height="600"></canvas>
-                    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.6.0/fabric.min.js"></script>
-                    <script>
-                        var canvas = new fabric.Canvas('canvas', {{
-                            backgroundColor: '#ffffff'
-                        }});
-                        fabric.Image.fromURL('data:image/png;base64,{img_base64}', function(oImg) {{
-                            oImg.scale(0.5);
-                            oImg.set({{
-                                left: 100,
-                                top: 100,
-                                selectable: true,
-                                hasControls: true,
-                                hasBorders: true,
-                                lockScalingFlip: true
-                            }});
-                            canvas.add(oImg);
-                        }});
-                    </script>
-                    """
-
-                    st.components.v1.html(canvas_html, height=650)
+        if "bar" in chart_suggestion.lower():
+            fig = px.bar(data, x=data.columns[0], y=data.columns[1])
+        elif "line" in chart_suggestion.lower():
+            fig = px.line(data, x=data.columns[0], y=data.columns[1])
+        elif "scatter" in chart_suggestion.lower():
+            fig = px.scatter(data, x=data.columns[0], y=data.columns[1])
         else:
-            st.write("Please select at least one column for the chart.")
+            fig = px.histogram(data, x=data.columns[0])
+
+        st.plotly_chart(fig)
+    except Exception as e:
+        st.write("Error creating chart:", e)
+
+# Step 3: Display and Customize Visualizations on a Movable Canvas
+st.write("### Customize Your Infographic")
+
+# Define Fabric.js canvas setup with JavaScript for interactive elements
+canvas_html = """
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.0/fabric.min.js"></script>
+<canvas id="canvas" width="800" height="600" style="border:1px solid #000000;"></canvas>
+<script>
+var canvas = new fabric.Canvas('canvas');
+
+// Function to add a Plotly chart as an image (placeholder image for now)
+fabric.Image.fromURL('https://via.placeholder.com/400x300', function(img) {
+    img.set({
+        left: 100,
+        top: 100,
+        selectable: true
+    });
+    canvas.add(img);
+});
+
+// Add text to the canvas
+function addText() {
+    var text = new fabric.Textbox('Add your text here', {
+        left: 50,
+        top: 50,
+        fontSize: 20,
+        fill: '#333'
+    });
+    canvas.add(text);
+}
+
+// Add buttons to add text and save canvas
+document.getElementById("addTextButton").onclick = addText;
+
+function saveCanvasAsImage() {
+    var link = document.createElement('a');
+    link.href = canvas.toDataURL({
+        format: 'png',
+        multiplier: 2
+    });
+    link.download = 'infographic.png';
+    link.click();
+}
+</script>
+<button id="addTextButton">Add Text</button>
+<button onclick="saveCanvasAsImage()">Download Infographic</button>
+"""
+
+# Step 4: Display the interactive canvas
+components.html(canvas_html, height=700)
