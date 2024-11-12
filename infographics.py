@@ -3,7 +3,6 @@ import pandas as pd
 import openai
 import streamlit.components.v1 as components
 import plotly.express as px
-import io
 
 # Load OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
@@ -26,12 +25,12 @@ if uploaded_file:
 st.write("### Describe Your Visualization")
 user_input = st.text_input("Describe the type of visualization you want to create:")
 if user_input and uploaded_file:
-    response = openai.chat.completions.create(
-        engine="text-davinci-003",
-        prompt=f"Generate a visualization idea based on this description: {user_input}",
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": f"Generate a visualization idea based on this description: {user_input}"}],
         max_tokens=100
     )
-    chart_suggestion = response["choices"][0]["text"].strip()
+    chart_suggestion = response["choices"][0]["message"]["content"].strip()
     st.write("**Suggested Chart**:", chart_suggestion)
 
     # Example: Generate a basic Plotly visualization based on suggestion (simplified example)
