@@ -30,9 +30,14 @@ st.write("### Describe Your Visualizations")
 # Color options for chart customization
 chart_color = st.color_picker("Pick a color for the chart", "#4CAF50")
 
+# Allow user to input a description for visualization generation
 user_input = st.text_input("Describe the type of visualization you want to create:")
-chart_images = []  # Store multiple chart images
 
+# Initialize storage for chart images
+if "chart_images" not in st.session_state:
+    st.session_state.chart_images = []
+
+# Generate chart based on the user's description
 if user_input and uploaded_file:
     response = openai.chat.completions.create(
         model="gpt-4",
@@ -42,7 +47,7 @@ if user_input and uploaded_file:
     chart_suggestion = response.choices[0].message.content.strip()
     st.write("**Suggested Chart**:", chart_suggestion)
 
-    # Allow multiple chart generation
+    # Generate chart when the button is clicked
     if st.button("Generate Chart"):
         try:
             # Generate the chart based on suggestion with the chosen color
@@ -55,17 +60,17 @@ if user_input and uploaded_file:
             else:
                 fig = px.histogram(data, x=data.columns[0], color_discrete_sequence=[chart_color])
 
-            # Save the Plotly chart as a high-resolution PNG image
+            # Export the chart as a high-resolution PNG image
             img_buffer = io.BytesIO()
-            fig.write_image(img_buffer, format="png", width=1200, height=800, scale=2)
+            fig.write_image(img_buffer, format="png", width=1600, height=1200, scale=3)
             img_buffer.seek(0)
             
-            # Convert image to base64 string
+            # Convert image to base64 for embedding in Fabric.js
             img_base64 = base64.b64encode(img_buffer.read()).decode("utf-8")
             chart_img_url = f"data:image/png;base64,{img_base64}"
             
-            # Append to chart images list
-            chart_images.append(chart_img_url)
+            # Append the new chart to session state
+            st.session_state.chart_images.append(chart_img_url)
             st.image(Image.open(io.BytesIO(base64.b64decode(img_base64))), caption="Generated Chart")
 
         except Exception as e:
@@ -74,9 +79,9 @@ if user_input and uploaded_file:
 # Step 3: Display and Customize Visualizations on a Movable Canvas
 st.write("### Customize Your Infographic")
 
-# Generate JavaScript to add multiple images on the Fabric.js canvas
+# Generate JavaScript code to add multiple images to the Fabric.js canvas
 chart_image_js = ""
-for idx, img_url in enumerate(chart_images):
+for idx, img_url in enumerate(st.session_state.chart_images):
     chart_image_js += f"""
     fabric.Image.fromURL("{img_url}", function(img) {{
         img.set({{
@@ -88,17 +93,17 @@ for idx, img_url in enumerate(chart_images):
     }});
     """
 
-# Define Fabric.js canvas setup with JavaScript for interactive elements
+# Define the Fabric.js canvas setup with JavaScript for interactive elements
 canvas_html = f"""
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.0/fabric.min.js"></script>
 <canvas id="canvas" width="800" height="600" style="border:1px solid #000000;"></canvas>
 <script>
 var canvas = new fabric.Canvas('canvas');
 
-// Function to add Plotly chart images to the canvas if available
+// Function to add each saved Plotly chart image to the canvas
 {chart_image_js}
 
-// Add text to the canvas
+// Function to add text to the canvas
 function addText() {{
     var text = new fabric.Textbox('Add your text here', {{
         left: 50,
