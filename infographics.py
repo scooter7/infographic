@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 import requests
 from PIL import Image, ImageDraw, ImageFont
-import os
+import io
 
 # Set OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
@@ -45,20 +45,22 @@ if st.button("Generate Presentation"):
         layout_instructions = response.choices[0].message.content
         st.write("Layout instructions received.")
 
-        # Use GPT for image generation instructions
-        dalle_response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Generate a high-quality and visually appealing presentation layout."},
-                {"role": "user", "content": layout_instructions}
-            ]
+        # Generate image based on layout instructions
+        dalle_response = openai.Image.create(
+            prompt=f"Generate a professional presentation slide: {layout_instructions}",
+            n=1,
+            size="1024x1024"
         )
 
-        # Extract URL from the response
-        image_url = dalle_response.choices[0].message.content
-
-        # Fetch and open the image
-        image = Image.open(requests.get(image_url, stream=True).raw)
+        # Validate and fetch image URL
+        image_url = dalle_response["data"][0]["url"]
+        try:
+            response = requests.get(image_url)
+            response.raise_for_status()  # Raise error for invalid responses
+            image = Image.open(io.BytesIO(response.content))
+        except requests.exceptions.RequestException as e:
+            st.error(f"Failed to fetch image: {e}")
+            st.stop()
 
         # Display generated image
         st.image(image, caption="Generated Presentation Slide", use_column_width=True)
