@@ -45,14 +45,19 @@ if st.button("Generate Presentation"):
         layout_instructions = response.choices[0].message.content
         st.write("Layout instructions received.")
 
-        # DALLE for Image Generation
-        dalle_response = openai.Image.create(
-            prompt=f"{layout_instructions}. High-quality and visually appealing presentation elements.",
-            n=1,
-            size="1024x1024"
+        # Use GPT for image generation instructions
+        dalle_response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Generate a high-quality and visually appealing presentation layout."},
+                {"role": "user", "content": layout_instructions}
+            ]
         )
 
-        image_url = dalle_response["data"][0]["url"]
+        # Extract URL from the response
+        image_url = dalle_response.choices[0].message.content
+
+        # Fetch and open the image
         image = Image.open(requests.get(image_url, stream=True).raw)
 
         # Display generated image
