@@ -41,37 +41,18 @@ if st.button("Generate Presentation"):
             ]
         )
 
-        # Correct way to access the content
+        # Extract layout instructions
         layout_instructions = response.choices[0].message.content
         st.write("Layout instructions received.")
 
-        # Generate image based on layout instructions
-        dalle_response = openai.Image.create(
-            prompt=f"Generate a professional presentation slide: {layout_instructions}",
-            n=1,
-            size="1024x1024"
-        )
+        # Simulate image generation (you need to integrate Stable Diffusion or a similar service here)
+        st.write("Image generation is not directly supported via OpenAI. Use an external tool like Stable Diffusion to generate images.")
 
-        # Validate and fetch image URL
-        image_url = dalle_response["data"][0]["url"]
-        try:
-            response = requests.get(image_url)
-            response.raise_for_status()  # Raise error for invalid responses
-            image = Image.open(io.BytesIO(response.content))
-        except requests.exceptions.RequestException as e:
-            st.error(f"Failed to fetch image: {e}")
-            st.stop()
-
-        # Display generated image
-        st.image(image, caption="Generated Presentation Slide", use_column_width=True)
-
-        # QA Step: Display content for validation
+        # Placeholder for QA and user validation
         st.write("### Quality Assurance Step")
-        st.write("Please ensure that the generated slide matches your uploaded text and statistics.")
+        st.write("Please ensure that the generated instructions match your uploaded text and statistics.")
         st.text_area("Uploaded Content:", value=content, height=200)
-        st.image(image, caption="Generated Slide for QA")
+        st.write(f"Layout Instructions: {layout_instructions}")
 
-        # Download option
-        output_path = "generated_presentation.png"
-        image.save(output_path)
-        st.download_button("Download Slide", data=open(output_path, "rb"), file_name="presentation.png")
+        # Simulate image download option
+        st.download_button("Download Layout Instructions", data=layout_instructions, file_name="layout_instructions.txt")
