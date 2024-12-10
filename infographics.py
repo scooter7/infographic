@@ -7,7 +7,7 @@ import io
 # Set OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
 
-# Define template URLs
+# Define template URL
 template_url = "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(1).png"
 
 # Function to fetch the template
@@ -80,7 +80,8 @@ if st.button("Generate Infographic"):
             for word in words:
                 line.append(word)
                 test_line = " ".join(line)
-                text_width, text_height = draw.textsize(test_line, font=font)
+                bbox = draw.textbbox((0, 0), test_line, font=font)
+                text_width = bbox[2] - bbox[0]
                 if text_width > box_width:
                     lines.append(" ".join(line[:-1]))
                     line = [word]
@@ -89,6 +90,8 @@ if st.button("Generate Infographic"):
             # Draw each line within the box
             y_offset = y
             for line in lines:
+                bbox = draw.textbbox((0, 0), line, font=font)
+                text_height = bbox[3] - bbox[1]
                 if y_offset + text_height > y + box_height:
                     break  # Stop if text exceeds the box height
                 draw.text((x, y_offset), line, fill="black", font=font)
