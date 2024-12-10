@@ -112,8 +112,9 @@ if st.button("Generate Infographic"):
             # Draw structured content as body text
             y_offset = text_region_start[1]
             for line in content.split("\n"):
+                bbox = draw.textbbox((0, 0), line.strip(), font=font_body)
+                text_height = bbox[3] - bbox[1]
                 draw.text((text_region_start[0], y_offset), line.strip(), fill="black", font=font_body)
-                _, text_height = font_body.getsize(line)
                 y_offset += text_height + 10  # Add line spacing
 
             return img
