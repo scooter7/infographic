@@ -1,13 +1,13 @@
 import streamlit as st
 import openai
 import requests
-from PIL import Image, ImageDraw, ImageFont, ImageColor
+from PIL import Image, ImageDraw, ImageFont
 import io
 
 # Set OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
 
-# Define the GitHub repository URLs for templates
+# Define template URLs
 template_urls = [
     "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(1).png",
     "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(2).png",
@@ -18,9 +18,9 @@ template_urls = [
 ]
 
 # Function to fetch templates
-def fetch_templates():
+def fetch_templates(urls):
     templates = []
-    for url in template_urls:
+    for url in urls:
         response = requests.get(url)
         if response.status_code == 200:
             img = Image.open(io.BytesIO(response.content))
@@ -29,24 +29,35 @@ def fetch_templates():
             st.warning(f"Failed to load template from {url}")
     return templates
 
+# Load templates
+templates = fetch_templates(template_urls)
+
 # App title and description
-st.title("Presentation Creator")
-st.write("Upload text and statistics to create stunning presentations inspired by template designs.")
+st.title("Infographic Generator")
+st.write("Generate a visually appealing infographic based on your input.")
 
 # Step 1: User uploads text or enters content
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
 manual_input = st.text_area("Or paste your text here:")
 
-# Aspect ratio selection
+# Step 2: Template Selection
+if templates:
+    template_names = [f"Template {i+1}" for i in range(len(templates))]
+    selected_template_idx = st.selectbox("Select a template for your infographic:", range(len(templates)), format_func=lambda x: template_names[x])
+    selected_template = templates[selected_template_idx]
+else:
+    st.error("No templates could be loaded. Please check the repository.")
+    st.stop()
+
+# Step 3: Aspect ratio selection
 aspect_ratio = st.selectbox("Choose aspect ratio for your presentation slide:", ["16:9", "1:1", "9:16"])
 
 # Generate Presentation button
-if st.button("Generate Slide"):
-    # Validate input
+if st.button("Generate Infographic"):
     if not uploaded_file and not manual_input.strip():
-        st.error("Please upload a file or enter text to proceed.")
+        st.error("Please provide text input.")
     else:
-        # Read text content
+        # Read content
         if uploaded_file:
             content = uploaded_file.read().decode("utf-8")
         else:
@@ -54,82 +65,67 @@ if st.button("Generate Slide"):
 
         st.write("Processing your content...")
 
-        # Fetch templates
-        templates = fetch_templates()
-        if not templates:
-            st.error("No templates could be loaded. Please check the repository.")
-            st.stop()
-
-        # Choose a template (for now, pick the first one)
-        selected_template = templates[0]
-
-        # Generate layout suggestion from GPT-4o-mini
+        # Extract structured content
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Design a visually appealing layout based on the user-provided text. Ensure all elements align with the text and data. Do not add or modify user content."},
-                {"role": "user", "content": content}
+                {"role": "system", "content": "Break the following text into structured sections with headings, subheadings, and bullet points. Preserve the original meaning and ensure logical structure."},
+                {"role": "user", "content": content},
             ]
         )
+        structured_content = response.choices[0].message.content
+        st.write("Structured Content:", structured_content)
 
-        # Extract layout instructions
-        layout_instructions = response.choices[0].message.content
-        st.write("Layout instructions received.")
-        st.write("Generating slide...")
+        # Resize template based on aspect ratio
+        if aspect_ratio == "16:9":
+            width, height = 1280, 720
+        elif aspect_ratio == "1:1":
+            width, height = 720, 720
+        elif aspect_ratio == "9:16":
+            width, height = 720, 1280
+        else:
+            width, height = 1280, 720
 
-        # Create a slide inspired by the template
-        def create_slide_with_template(template, content, aspect_ratio):
-            # Resize template to match aspect ratio dimensions
-            if aspect_ratio == "16:9":
-                width, height = 1280, 720
-            elif aspect_ratio == "1:1":
-                width, height = 720, 720
-            elif aspect_ratio == "9:16":
-                width, height = 720, 1280
-            else:
-                width, height = 1280, 720
+        template_resized = selected_template.resize((width, height))
 
-            template = template.resize((width, height))
-            draw = ImageDraw.Draw(template)
+        # Create infographic using the selected template
+        def create_infographic(template, content):
+            img = template.copy()
+            draw = ImageDraw.Draw(img)
 
             # Set font
             try:
-                font = ImageFont.truetype("arial.ttf", size=24)
+                font_title = ImageFont.truetype("arial.ttf", 40)
+                font_body = ImageFont.truetype("arial.ttf", 20)
             except IOError:
-                font = ImageFont.load_default()
+                font_title = ImageFont.load_default()
+                font_body = ImageFont.load_default()
 
-            # Draw content
-            margin = 50
-            lines = []
-            words = content.split()
-            line = []
-            for word in words:
-                line.append(word)
-                text = " ".join(line)
-                bbox = draw.textbbox((0, 0), text, font=font)
-                text_width = bbox[2] - bbox[0]
-                if text_width > width - margin * 2:
-                    lines.append(" ".join(line[:-1]))
-                    line = [word]
-            lines.append(" ".join(line))
+            # Define content placement regions (coordinates)
+            title_region = (50, 30)  # (x, y)
+            text_region_start = (50, 120)  # (x, y)
 
-            y = margin
-            for line in lines:
-                draw.text((margin, y), line, fill="black", font=font)
-                bbox = draw.textbbox((0, 0), line, font=font)
-                text_height = bbox[3] - bbox[1]
-                y += text_height + 10
+            # Draw title (if exists in content)
+            title = "Generated Infographic"  # Replace or refine based on structured_content if needed
+            draw.text(title_region, title, fill="black", font=font_title)
 
-            return template
+            # Draw structured content as body text
+            y_offset = text_region_start[1]
+            for line in content.split("\n"):
+                draw.text((text_region_start[0], y_offset), line.strip(), fill="black", font=font_body)
+                _, text_height = font_body.getsize(line)
+                y_offset += text_height + 10  # Add line spacing
 
-        # Generate slide
-        slide = create_slide_with_template(selected_template.copy(), content, aspect_ratio)
+            return img
 
-        # Display the slide
-        st.image(slide, caption="Generated Slide", use_column_width=True)
+        # Generate infographic
+        infographic = create_infographic(template_resized, structured_content)
 
-        # Download the slide as an image
+        # Display the infographic
+        st.image(infographic, caption="Generated Infographic", use_column_width=True)
+
+        # Save and allow download
         buf = io.BytesIO()
-        slide.save(buf, format="PNG")
+        infographic.save(buf, format="PNG")
         buf.seek(0)
-        st.download_button("Download Slide", data=buf, file_name="slide.png", mime="image/png")
+        st.download_button("Download Infographic", data=buf, file_name="infographic.png", mime="image/png")
