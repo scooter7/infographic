@@ -48,7 +48,7 @@ if st.button("Generate Infographic"):
         st.write("Processing your content...")
 
         # Extract structured content and keywords
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Break the following text into structured sections and extract main keywords for image generation."},
