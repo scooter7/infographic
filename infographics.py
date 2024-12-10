@@ -33,7 +33,7 @@ if st.button("Generate Presentation"):
         st.write("Processing your content...")
 
         # Generate layout suggestion from GPT-4o-mini
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Design a visually appealing layout based on the user-provided text. Ensure all elements align with the text and data. Do not add or modify user content."},
