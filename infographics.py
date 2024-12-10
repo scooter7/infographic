@@ -1,136 +1,69 @@
 import streamlit as st
-import pandas as pd
 import openai
-import streamlit.components.v1 as components
-import plotly.express as px
-import io
-import base64
-from PIL import Image
+import requests
+from PIL import Image, ImageDraw, ImageFont
+import os
 
-# Load OpenAI API key from Streamlit secrets
+# Set OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
 
-# Set up the app title and instructions
-st.title("AI-Powered Infographic Creator")
-st.write("Upload a CSV or Excel file, describe the visualization you want, and arrange elements on a canvas to create an infographic.")
+# App title and description
+st.title("Presentation Creator")
+st.write("Upload text and statistics to create stunning presentations in multiple aspect ratios.")
 
-# Step 1: Upload and Display CSV/Excel Data
-uploaded_file = st.file_uploader("Upload your CSV or Excel file", type=["csv", "xlsx"])
-if uploaded_file:
-    if uploaded_file.name.endswith("csv"):
-        data = pd.read_csv(uploaded_file)
+# Step 1: User uploads text or enters content
+uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
+manual_input = st.text_area("Or paste your text here:")
+
+# Aspect ratio selection
+aspect_ratio = st.selectbox("Choose aspect ratio for your presentation:", ["16:9", "1:1", "9:16"])
+
+# Generate Presentation button
+if st.button("Generate Presentation"):
+    # Validate input
+    if not uploaded_file and not manual_input.strip():
+        st.error("Please upload a file or enter text to proceed.")
     else:
-        data = pd.read_excel(uploaded_file)
-    st.write("### Uploaded Data")
-    st.write(data)
+        # Read text content
+        if uploaded_file:
+            content = uploaded_file.read().decode("utf-8")
+        else:
+            content = manual_input
 
-# Step 2: Process Natural Language for Visualization and Create Multiple Charts
-st.write("### Describe Your Visualizations")
+        st.write("Processing your content...")
 
-# Color options for chart customization
-chart_color = st.color_picker("Pick a color for the chart", "#4CAF50")
+        # Generate layout suggestion from GPT-4o-mini
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Design a visually appealing layout based on the user-provided text. Ensure all elements align with the text and data. Do not add or modify user content."},
+                {"role": "user", "content": content}
+            ]
+        )
 
-# Allow user to input a description for visualization generation
-user_input = st.text_input("Describe the type of visualization you want to create:")
+        layout_instructions = response["choices"][0]["message"]["content"]
+        st.write("Layout instructions received.")
 
-# Initialize storage for chart images
-if "chart_images" not in st.session_state:
-    st.session_state.chart_images = []
+        # DALLE for Image Generation
+        dalle_response = openai.Image.create(
+            prompt=f"{layout_instructions}. High-quality and visually appealing presentation elements.",
+            n=1,
+            size="1024x1024"
+        )
 
-# Generate chart based on the user's description
-if user_input and uploaded_file:
-    response = openai.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": f"Generate a visualization idea based on this description: {user_input}"}],
-        max_tokens=100
-    )
-    chart_suggestion = response.choices[0].message.content.strip()
-    st.write("**Suggested Chart**:", chart_suggestion)
+        image_url = dalle_response["data"][0]["url"]
+        image = Image.open(requests.get(image_url, stream=True).raw)
 
-    # Generate chart when the button is clicked
-    if st.button("Generate Chart"):
-        try:
-            # Generate the chart based on suggestion with the chosen color
-            if "bar" in chart_suggestion.lower():
-                fig = px.bar(data, x=data.columns[0], y=data.columns[1], color_discrete_sequence=[chart_color])
-            elif "line" in chart_suggestion.lower():
-                fig = px.line(data, x=data.columns[0], y=data.columns[1], line_shape="spline", color_discrete_sequence=[chart_color])
-            elif "scatter" in chart_suggestion.lower():
-                fig = px.scatter(data, x=data.columns[0], y=data.columns[1], color_discrete_sequence=[chart_color])
-            else:
-                fig = px.histogram(data, x=data.columns[0], color_discrete_sequence=[chart_color])
+        # Display generated image
+        st.image(image, caption="Generated Presentation Slide", use_column_width=True)
 
-            # Export the chart as a high-resolution PNG image
-            img_buffer = io.BytesIO()
-            fig.write_image(img_buffer, format="png", width=1600, height=1200, scale=3)
-            img_buffer.seek(0)
-            
-            # Convert image to base64 for embedding in Fabric.js
-            img_base64 = base64.b64encode(img_buffer.read()).decode("utf-8")
-            chart_img_url = f"data:image/png;base64,{img_base64}"
-            
-            # Append the new chart to session state
-            st.session_state.chart_images.append(chart_img_url)
-            st.image(Image.open(io.BytesIO(base64.b64decode(img_base64))), caption="Generated Chart")
+        # QA Step: Display content for validation
+        st.write("### Quality Assurance Step")
+        st.write("Please ensure that the generated slide matches your uploaded text and statistics.")
+        st.text_area("Uploaded Content:", value=content, height=200)
+        st.image(image, caption="Generated Slide for QA")
 
-        except Exception as e:
-            st.write("Error creating chart:", e)
-
-# Step 3: Display and Customize Visualizations on a Movable Canvas
-st.write("### Customize Your Infographic")
-
-# Generate JavaScript code to add multiple images to the Fabric.js canvas
-chart_image_js = ""
-for idx, img_url in enumerate(st.session_state.chart_images):
-    chart_image_js += f"""
-    fabric.Image.fromURL("{img_url}", function(img) {{
-        img.set({{
-            left: {100 + idx * 50},
-            top: {100 + idx * 50},
-            selectable: true
-        }});
-        canvas.add(img);
-    }});
-    """
-
-# Define the Fabric.js canvas setup with JavaScript for interactive elements
-canvas_html = f"""
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/4.5.0/fabric.min.js"></script>
-<canvas id="canvas" width="800" height="600" style="border:1px solid #000000;"></canvas>
-<script>
-var canvas = new fabric.Canvas('canvas');
-
-// Function to add each saved Plotly chart image to the canvas
-{chart_image_js}
-
-// Function to add text to the canvas
-function addText() {{
-    var text = new fabric.Textbox('Add your text here', {{
-        left: 50,
-        top: 50,
-        fontSize: 20,
-        fill: '#333'
-    }});
-    canvas.add(text);
-}}
-
-// Bind Add Text button to the function
-document.getElementById("addTextButton").onclick = addText;
-
-// Function to save the canvas as an image
-function saveCanvasAsImage() {{
-    var link = document.createElement('a');
-    link.href = canvas.toDataURL({{
-        format: 'png',
-        multiplier: 2
-    }});
-    link.download = 'infographic.png';
-    link.click();
-}}
-</script>
-<button id="addTextButton">Add Text</button>
-<button onclick="saveCanvasAsImage()">Download Infographic</button>
-"""
-
-# Step 4: Display the interactive canvas
-components.html(canvas_html, height=700)
+        # Download option
+        output_path = "generated_presentation.png"
+        image.save(output_path)
+        st.download_button("Download Slide", data=open(output_path, "rb"), file_name="presentation.png")
