@@ -1,6 +1,5 @@
 import streamlit as st
 import openai
-import requests
 from PIL import Image, ImageDraw, ImageFont
 import io
 
@@ -9,17 +8,17 @@ openai.api_key = st.secrets["openai_api_key"]
 
 # App title and description
 st.title("Presentation Creator")
-st.write("Upload text and statistics to create stunning presentations in multiple aspect ratios.")
+st.write("Upload text and statistics to create stunning presentations on a single slide.")
 
 # Step 1: User uploads text or enters content
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
 manual_input = st.text_area("Or paste your text here:")
 
 # Aspect ratio selection
-aspect_ratio = st.selectbox("Choose aspect ratio for your presentation:", ["16:9", "1:1", "9:16"])
+aspect_ratio = st.selectbox("Choose aspect ratio for your presentation slide:", ["16:9", "1:1", "9:16"])
 
 # Generate Presentation button
-if st.button("Generate Presentation"):
+if st.button("Generate Slide"):
     # Validate input
     if not uploaded_file and not manual_input.strip():
         st.error("Please upload a file or enter text to proceed.")
@@ -44,15 +43,58 @@ if st.button("Generate Presentation"):
         # Extract layout instructions
         layout_instructions = response.choices[0].message.content
         st.write("Layout instructions received.")
+        st.write("Generating slide...")
 
-        # Simulate image generation (you need to integrate Stable Diffusion or a similar service here)
-        st.write("Image generation is not directly supported via OpenAI. Use an external tool like Stable Diffusion to generate images.")
+        # Create a single slide using Pillow
+        def create_single_slide(content, aspect_ratio):
+            # Set dimensions based on aspect ratio
+            if aspect_ratio == "16:9":
+                width, height = 1280, 720
+            elif aspect_ratio == "1:1":
+                width, height = 720, 720
+            elif aspect_ratio == "9:16":
+                width, height = 720, 1280
+            else:
+                width, height = 1280, 720
 
-        # Placeholder for QA and user validation
-        st.write("### Quality Assurance Step")
-        st.write("Please ensure that the generated instructions match your uploaded text and statistics.")
-        st.text_area("Uploaded Content:", value=content, height=200)
-        st.write(f"Layout Instructions: {layout_instructions}")
+            # Create blank canvas
+            img = Image.new("RGB", (width, height), color="white")
+            draw = ImageDraw.Draw(img)
 
-        # Simulate image download option
-        st.download_button("Download Layout Instructions", data=layout_instructions, file_name="layout_instructions.txt")
+            # Set font
+            try:
+                font = ImageFont.truetype("arial.ttf", size=24)
+            except IOError:
+                font = ImageFont.load_default()
+
+            # Draw content
+            margin = 50
+            text_width, text_height = draw.textsize(content, font=font)
+            lines = []
+            words = content.split()
+            line = []
+            for word in words:
+                line.append(word)
+                if draw.textsize(" ".join(line), font=font)[0] > width - margin * 2:
+                    lines.append(" ".join(line[:-1]))
+                    line = [word]
+            lines.append(" ".join(line))
+
+            y = margin
+            for line in lines:
+                draw.text((margin, y), line, fill="black", font=font)
+                y += text_height + 10
+
+            return img
+
+        # Generate single slide
+        slide = create_single_slide(layout_instructions, aspect_ratio)
+
+        # Display the slide
+        st.image(slide, caption="Generated Slide", use_column_width=True)
+
+        # Download the slide as an image
+        buf = io.BytesIO()
+        slide.save(buf, format="PNG")
+        buf.seek(0)
+        st.download_button("Download Slide", data=buf, file_name="slide.png", mime="image/png")
