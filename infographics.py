@@ -69,13 +69,12 @@ if st.button("Generate Slide"):
 
             # Draw content
             margin = 50
-            text_width, text_height = draw.textsize(content, font=font)
             lines = []
             words = content.split()
             line = []
             for word in words:
                 line.append(word)
-                if draw.textsize(" ".join(line), font=font)[0] > width - margin * 2:
+                if font.getsize(" ".join(line))[0] > width - margin * 2:
                     lines.append(" ".join(line[:-1]))
                     line = [word]
             lines.append(" ".join(line))
@@ -83,7 +82,7 @@ if st.button("Generate Slide"):
             y = margin
             for line in lines:
                 draw.text((margin, y), line, fill="black", font=font)
-                y += text_height + 10
+                y += font.getsize(line)[1] + 10
 
             return img
 
