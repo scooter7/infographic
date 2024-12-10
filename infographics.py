@@ -8,51 +8,36 @@ import io
 openai.api_key = st.secrets["openai_api_key"]
 
 # Define template URLs
-template_urls = [
-    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(1).png",
-    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(2).png",
-    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(3).png",
-    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(4).png",
-    "https://github.com/scooter7/infographic/raw/main/Examples/infography.png",
-    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(5).png",
+template_url = "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(1).png"
+
+# Function to fetch the template
+def fetch_template(url):
+    response = requests.get(url)
+    if response.status_code == 200:
+        return Image.open(io.BytesIO(response.content))
+    else:
+        st.error("Failed to load the template.")
+        return None
+
+# Load the template
+template = fetch_template(template_url)
+
+# Bounding boxes for circles (x, y, width, height)
+circle_regions = [
+    (80, 180, 220, 180),   # Circle 1
+    (360, 180, 220, 180),  # Circle 2
+    (640, 180, 220, 180),  # Circle 3
+    (920, 180, 220, 180),  # Circle 4
+    (1200, 180, 220, 180), # Circle 5
 ]
 
-# Function to fetch templates
-def fetch_templates(urls):
-    templates = []
-    for url in urls:
-        response = requests.get(url)
-        if response.status_code == 200:
-            img = Image.open(io.BytesIO(response.content))
-            templates.append(img)
-        else:
-            st.warning(f"Failed to load template from {url}")
-    return templates
-
-# Load templates
-templates = fetch_templates(template_urls)
-
-# App title and description
-st.title("Infographic Generator")
+# Streamlit app setup
+st.title("Infographic Generator with Positional Constraints")
 st.write("Generate a visually appealing infographic based on your input.")
 
-# Step 1: User uploads text or enters content
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
 manual_input = st.text_area("Or paste your text here:")
 
-# Step 2: Template Selection
-if templates:
-    template_names = [f"Template {i+1}" for i in range(len(templates))]
-    selected_template_idx = st.selectbox("Select a template for your infographic:", range(len(templates)), format_func=lambda x: template_names[x])
-    selected_template = templates[selected_template_idx]
-else:
-    st.error("No templates could be loaded. Please check the repository.")
-    st.stop()
-
-# Step 3: Aspect ratio selection
-aspect_ratio = st.selectbox("Choose aspect ratio for your presentation slide:", ["16:9", "1:1", "9:16"])
-
-# Generate Presentation button
 if st.button("Generate Infographic"):
     if not uploaded_file and not manual_input.strip():
         st.error("Please provide text input.")
@@ -69,64 +54,57 @@ if st.button("Generate Infographic"):
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Break the following text into structured sections with headings, subheadings, and bullet points. Preserve the original meaning and ensure logical structure."},
+                {"role": "system", "content": "Break the following text into structured sections for headings and subheadings."},
                 {"role": "user", "content": content},
             ]
         )
         structured_content = response.choices[0].message.content
         st.write("Structured Content:", structured_content)
 
-        # Resize template based on aspect ratio
-        if aspect_ratio == "16:9":
-            width, height = 1280, 720
-        elif aspect_ratio == "1:1":
-            width, height = 720, 720
-        elif aspect_ratio == "9:16":
-            width, height = 720, 1280
-        else:
-            width, height = 1280, 720
+        # Resize template
+        template_resized = template.resize((1400, 800))
+        draw = ImageDraw.Draw(template_resized)
 
-        template_resized = selected_template.resize((width, height))
+        # Set font
+        try:
+            font = ImageFont.truetype("arial.ttf", 20)
+        except IOError:
+            font = ImageFont.load_default()
 
-        # Create infographic using the selected template
-        def create_infographic(template, content):
-            img = template.copy()
-            draw = ImageDraw.Draw(img)
+        # Function to render text within bounding boxes
+        def render_text_in_box(draw, box, text, font):
+            x, y, box_width, box_height = box
+            words = text.split()
+            lines = []
+            line = []
+            for word in words:
+                line.append(word)
+                test_line = " ".join(line)
+                text_width, text_height = draw.textsize(test_line, font=font)
+                if text_width > box_width:
+                    lines.append(" ".join(line[:-1]))
+                    line = [word]
+            lines.append(" ".join(line))
 
-            # Set font
-            try:
-                font_title = ImageFont.truetype("arial.ttf", 40)
-                font_body = ImageFont.truetype("arial.ttf", 20)
-            except IOError:
-                font_title = ImageFont.load_default()
-                font_body = ImageFont.load_default()
+            # Draw each line within the box
+            y_offset = y
+            for line in lines:
+                if y_offset + text_height > y + box_height:
+                    break  # Stop if text exceeds the box height
+                draw.text((x, y_offset), line, fill="black", font=font)
+                y_offset += text_height + 5
 
-            # Define content placement regions (coordinates)
-            title_region = (50, 30)  # (x, y)
-            text_region_start = (50, 120)  # (x, y)
-
-            # Draw title (if exists in content)
-            title = "Generated Infographic"  # Replace or refine based on structured_content if needed
-            draw.text(title_region, title, fill="black", font=font_title)
-
-            # Draw structured content as body text
-            y_offset = text_region_start[1]
-            for line in content.split("\n"):
-                bbox = draw.textbbox((0, 0), line.strip(), font=font_body)
-                text_height = bbox[3] - bbox[1]
-                draw.text((text_region_start[0], y_offset), line.strip(), fill="black", font=font_body)
-                y_offset += text_height + 10  # Add line spacing
-
-            return img
-
-        # Generate infographic
-        infographic = create_infographic(template_resized, structured_content)
+        # Map structured content to circle regions
+        sections = structured_content.split("\n\n")  # Split into sections
+        for i, box in enumerate(circle_regions):
+            if i < len(sections):
+                render_text_in_box(draw, box, sections[i], font)
 
         # Display the infographic
-        st.image(infographic, caption="Generated Infographic", use_column_width=True)
+        st.image(template_resized, caption="Generated Infographic", use_column_width=True)
 
         # Save and allow download
         buf = io.BytesIO()
-        infographic.save(buf, format="PNG")
+        template_resized.save(buf, format="PNG")
         buf.seek(0)
         st.download_button("Download Infographic", data=buf, file_name="infographic.png", mime="image/png")
