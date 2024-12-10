@@ -153,8 +153,8 @@ if st.button("Generate Infographic"):
                         alpha_mask = img_overlay.getchannel("A")
             
                         # Resize overlay image if necessary
-                        img_overlay = img_overlay.resize((100, 100), Image.ANTIALIAS)
-                        alpha_mask = alpha_mask.resize((100, 100), Image.ANTIALIAS)
+                        img_overlay = img_overlay.resize((100, 100), Image.Resampling.LANCZOS)
+                        alpha_mask = alpha_mask.resize((100, 100), Image.Resampling.LANCZOS)
             
                         # Position the overlay image
                         x, y = circle_positions[i]
