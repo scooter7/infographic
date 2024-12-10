@@ -1,14 +1,37 @@
 import streamlit as st
 import openai
-from PIL import Image, ImageDraw, ImageFont
+import requests
+from PIL import Image, ImageDraw, ImageFont, ImageColor
 import io
 
 # Set OpenAI API key from Streamlit secrets
 openai.api_key = st.secrets["openai_api_key"]
 
+# Define the GitHub repository URLs for templates
+template_urls = [
+    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(1).png",
+    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(2).png",
+    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(3).png",
+    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(4).png",
+    "https://github.com/scooter7/infographic/raw/main/Examples/infography.png",
+    "https://github.com/scooter7/infographic/raw/main/Examples/infography%20(5).png",
+]
+
+# Function to fetch templates
+def fetch_templates():
+    templates = []
+    for url in template_urls:
+        response = requests.get(url)
+        if response.status_code == 200:
+            img = Image.open(io.BytesIO(response.content))
+            templates.append(img)
+        else:
+            st.warning(f"Failed to load template from {url}")
+    return templates
+
 # App title and description
 st.title("Presentation Creator")
-st.write("Upload text and statistics to create stunning presentations on a single slide.")
+st.write("Upload text and statistics to create stunning presentations inspired by template designs.")
 
 # Step 1: User uploads text or enters content
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
@@ -31,6 +54,15 @@ if st.button("Generate Slide"):
 
         st.write("Processing your content...")
 
+        # Fetch templates
+        templates = fetch_templates()
+        if not templates:
+            st.error("No templates could be loaded. Please check the repository.")
+            st.stop()
+
+        # Choose a template (for now, pick the first one)
+        selected_template = templates[0]
+
         # Generate layout suggestion from GPT-4o-mini
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
@@ -45,9 +77,9 @@ if st.button("Generate Slide"):
         st.write("Layout instructions received.")
         st.write("Generating slide...")
 
-        # Create a single slide using Pillow
-        def create_single_slide(content, aspect_ratio):
-            # Set dimensions based on aspect ratio
+        # Create a slide inspired by the template
+        def create_slide_with_template(template, content, aspect_ratio):
+            # Resize template to match aspect ratio dimensions
             if aspect_ratio == "16:9":
                 width, height = 1280, 720
             elif aspect_ratio == "1:1":
@@ -57,9 +89,8 @@ if st.button("Generate Slide"):
             else:
                 width, height = 1280, 720
 
-            # Create blank canvas
-            img = Image.new("RGB", (width, height), color="white")
-            draw = ImageDraw.Draw(img)
+            template = template.resize((width, height))
+            draw = ImageDraw.Draw(template)
 
             # Set font
             try:
@@ -89,10 +120,10 @@ if st.button("Generate Slide"):
                 text_height = bbox[3] - bbox[1]
                 y += text_height + 10
 
-            return img
+            return template
 
-        # Generate single slide
-        slide = create_single_slide(layout_instructions, aspect_ratio)
+        # Generate slide
+        slide = create_slide_with_template(selected_template.copy(), content, aspect_ratio)
 
         # Display the slide
         st.image(slide, caption="Generated Slide", use_column_width=True)
