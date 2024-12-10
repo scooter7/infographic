@@ -41,7 +41,8 @@ if st.button("Generate Presentation"):
             ]
         )
 
-        layout_instructions = response["choices"][0]["message"]["content"]
+        # Correct way to access the content
+        layout_instructions = response.choices[0].message["content"]
         st.write("Layout instructions received.")
 
         # DALLE for Image Generation
