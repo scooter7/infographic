@@ -22,7 +22,7 @@ def fetch_template(url):
 # Load the template
 template = fetch_template(template_url)
 
-# Bounding boxes for circles (x, y, width, height)
+# Bounding boxes for circles (x, y, width, height) - Visual layout only
 circle_regions = [
     (80, 180, 220, 180),   # Circle 1
     (360, 180, 220, 180),  # Circle 2
@@ -32,8 +32,8 @@ circle_regions = [
 ]
 
 # Streamlit app setup
-st.title("Infographic Generator with Positional Constraints")
-st.write("Generate a visually appealing infographic based on your input.")
+st.title("Infographic Generator")
+st.write("Generate a visually appealing infographic based on your input. Templates are used for layout guidance only.")
 
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
 manual_input = st.text_area("Or paste your text here:")
@@ -54,7 +54,7 @@ if st.button("Generate Infographic"):
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Break the following text into structured sections for headings and subheadings."},
+                {"role": "system", "content": "Break the following text into structured sections for headings and subheadings. Focus on concise and relevant formatting for visual layout."},
                 {"role": "user", "content": content},
             ]
         )
