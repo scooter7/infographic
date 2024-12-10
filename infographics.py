@@ -145,9 +145,22 @@ if st.button("Generate Infographic"):
                 if i < len(circle_positions):
                     img_response = requests.get(img_url)
                     if img_response.status_code == 200:
-                        img_overlay = Image.open(io.BytesIO(img_response.content)).resize((100, 100))
+                        # Open the fetched image
+                        img_overlay = Image.open(io.BytesIO(img_response.content)).convert("RGBA")
+            
+                        # Create an alpha mask for the overlay image
+                        overlay_width, overlay_height = img_overlay.size
+                        alpha_mask = img_overlay.getchannel("A")
+            
+                        # Resize overlay image if necessary
+                        img_overlay = img_overlay.resize((100, 100), Image.ANTIALIAS)
+                        alpha_mask = alpha_mask.resize((100, 100), Image.ANTIALIAS)
+            
+                        # Position the overlay image
                         x, y = circle_positions[i]
-                        img.paste(img_overlay, (x - 50, y - 50), img_overlay)
+            
+                        # Paste the image using the alpha mask
+                        img.paste(img_overlay, (x - 50, y - 50), alpha_mask)
 
             return img
 
