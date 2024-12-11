@@ -14,7 +14,7 @@ openai.api_key = st.secrets["openai_api_key"]
 
 def extract_concepts_by_section(text):
     """
-    Extract 2-3 meaningful keywords per section from the text using OpenAI.
+    Use OpenAI to extract concise, meaningful keywords or phrases from the text.
     """
     try:
         response = openai.chat.completions.create(
@@ -31,11 +31,22 @@ def extract_concepts_by_section(text):
                 {"role": "user", "content": text},
             ],
         )
-        keywords = response.choices[0].message.content.strip()
-        return [kw.strip() for kw in keywords.split(",") if kw.strip()]
+        extracted_keywords = response.choices[0].message.content.strip()
+        return re.split(r",|\n", extracted_keywords)  # Split by commas or newlines
     except Exception as e:
         st.error(f"Error extracting concepts: {e}")
         return []
+
+def clean_keywords(keywords):
+    """
+    Clean extracted keywords to remove numbers and unnecessary formatting.
+    """
+    clean_keywords = []
+    for keyword in keywords:
+        clean_keyword = re.sub(r"^\d+\.\s*", "", keyword).strip()  # Remove numbering
+        if clean_keyword:
+            clean_keywords.append(clean_keyword)
+    return clean_keywords
 
 def query_google_images(keyword):
     """
@@ -82,7 +93,7 @@ def fetch_images_for_keywords(keywords):
     return images
 
 # Streamlit app setup
-st.title("Infographic Generator with Focused Keyword Extraction")
+st.title("Infographic Generator with Proper Keyword Extraction")
 st.write("Generate a visually appealing infographic with concise, meaningful keywords and clip-art images.")
 
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
@@ -110,10 +121,12 @@ if st.button("Generate Infographic"):
         for section in sections:
             st.write(f"Processing section: {section}")
             keywords = extract_concepts_by_section(section)
-            st.write(f"Extracted keywords for section: {keywords}")
-            extracted_keywords.extend(keywords)
+            st.write(f"Raw extracted keywords: {keywords}")
+            cleaned_keywords = clean_keywords(keywords)
+            st.write(f"Cleaned keywords: {cleaned_keywords}")
+            extracted_keywords.extend(cleaned_keywords)
 
-        st.write("All Extracted Keywords:", extracted_keywords)
+        st.write("All Extracted and Cleaned Keywords:", extracted_keywords)
 
         # Fetch Google images for each keyword
         google_images = fetch_images_for_keywords(extracted_keywords)
