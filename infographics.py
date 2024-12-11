@@ -13,78 +13,92 @@ openai.api_key = st.secrets["openai_api_key"]
 
 # Fetch clip-art images using Google Image Search
 import re
+import requests
 
-def extract_keywords(text):
+def preprocess_keywords(text):
     """
-    Extract and split keywords into individual terms.
-    - Removes numbering and any extra formatting.
-    - Splits multiple phrases into clean individual keywords.
+    Preprocess and clean the text to extract individual keywords for querying.
+    Removes numbering, splits multi-term lines, and ensures clean keywords.
     """
     # Split text into lines
     lines = text.splitlines()
     keywords = []
     for line in lines:
-        # Remove numbering (e.g., "1. ") and extra spaces
+        # Remove numbering (e.g., "1.") and extra spaces
         clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
         if clean_line:
-            # Split multiple keywords within the same line (e.g., separated by commas or double spaces)
-            split_terms = re.split(r"[,\-\s{2,}]+", clean_line)
-            keywords.extend([term.strip() for term in split_terms if term.strip()])
+            # Split lines with multiple terms by common delimiters
+            split_terms = re.split(r"[,\-\n]+", clean_line)
+            for term in split_terms:
+                term = term.strip()
+                if term:
+                    keywords.append(term)
     return keywords
 
-def fetch_google_images(keywords):
+def query_google_images(keyword):
     """
-    Fetch clip-art-style images using Google Image Search for each keyword.
+    Query Google Custom Search API for a single keyword.
     """
     search_url = "https://www.googleapis.com/customsearch/v1"
-    images = []
-
-    for keyword in keywords:
-        query = f"{keyword} clip art"
-        try:
-            response = requests.get(
-                search_url,
-                params={
-                    "key": google_api_key,
-                    "cx": google_cx,
-                    "q": query,
-                    "searchType": "image",
-                    "fileType": "png",
-                    "imgType": "clipart",
-                    "num": 1,
-                },
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                st.write(f"API response for '{query}':", data)  # Debugging log
-                if "items" in data:
-                    images.append(data["items"][0]["link"])
-                else:
-                    st.warning(f"No images found for '{query}'.")
+    params = {
+        "key": google_api_key,
+        "cx": google_cx,
+        "q": f"{keyword} clip art",
+        "searchType": "image",
+        "fileType": "png",
+        "imgType": "clipart",
+        "num": 1,
+    }
+    try:
+        response = requests.get(search_url, params=params)
+        if response.status_code == 200:
+            data = response.json()
+            if "items" in data:
+                return data["items"][0]["link"]
             else:
-                st.error(f"Google API error: {response.status_code} for '{query}'")
-        except Exception as e:
-            st.error(f"Error during image search for '{query}': {e}")
+                return None
+        else:
+            st.error(f"Google API error: {response.status_code}")
+            return None
+    except Exception as e:
+        st.error(f"Error querying Google API for '{keyword}': {e}")
+        return None
 
+def fetch_images_for_keywords(keywords):
+    """
+    Fetch images for a list of keywords, handling failures gracefully.
+    """
+    images = {}
+    for keyword in keywords:
+        st.write(f"Querying for '{keyword}'...")
+        image_url = query_google_images(keyword)
+        if image_url:
+            st.write(f"Found image for '{keyword}': {image_url}")
+            images[keyword] = image_url
+        else:
+            st.warning(f"No image found for '{keyword}'.")
     return images
 
 # Example Input and Testing
-if st.button("Test Extract and Fetch Images"):
-    raw_keywords = """
+if st.button("Test New Approach"):
+    raw_text = """
     1. AI Adoption
-    2. Training
-    3. Operational Excellence
-    4. Career Development
-    5. Business Courses
+    2. AI Impact
+    3. AI Training
+    4. Workplace Solutions
+    5. Career Development
     """
-    extracted_keywords = extract_keywords(raw_keywords)
-    st.write("Extracted and Split Keywords:", extracted_keywords)
+    st.write("Raw Input Text:", raw_text)
 
-    # Fetch and display images
-    fetched_images = fetch_google_images(extracted_keywords)
+    # Preprocess keywords
+    keywords = preprocess_keywords(raw_text)
+    st.write("Preprocessed Keywords:", keywords)
+
+    # Fetch images for keywords
+    images = fetch_images_for_keywords(keywords)
     st.write("Fetched Images:")
-    for img_url in fetched_images:
+    for keyword, img_url in images.items():
+        st.write(f"Keyword: {keyword}")
         st.image(img_url, width=150)
 
 # Streamlit app setup
