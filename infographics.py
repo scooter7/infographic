@@ -14,20 +14,21 @@ openai.api_key = st.secrets["openai_api_key"]
 # Fetch clip-art images using Google Image Search
 import re
 
-def clean_and_split_keywords(text):
+def extract_keywords(text):
     """
-    Properly clean and split the input text into individual keywords.
-    Handles multi-line, numbered lists, and unnecessary characters.
+    Extract and split keywords into individual terms.
+    - Removes numbering and any extra formatting.
+    - Splits multiple phrases into clean individual keywords.
     """
-    # Split the text into lines
+    # Split text into lines
     lines = text.splitlines()
     keywords = []
     for line in lines:
-        # Remove numbering and strip extra spaces
-        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()  # Remove numbering like "1. "
-        if clean_line:  # Only keep non-empty lines
-            # Split multi-keyword lines by delimiters (e.g., commas, double spaces)
-            split_terms = re.split(r"[,;]|\s{2,}", clean_line)
+        # Remove numbering (e.g., "1. ") and extra spaces
+        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
+        if clean_line:
+            # Split multiple keywords within the same line (e.g., separated by commas or double spaces)
+            split_terms = re.split(r"[,\-\s{2,}]+", clean_line)
             keywords.extend([term.strip() for term in split_terms if term.strip()])
     return keywords
 
@@ -69,19 +70,19 @@ def fetch_google_images(keywords):
     return images
 
 # Example Input and Testing
-if st.button("Test Clean and Fetch Images"):
+if st.button("Test Extract and Fetch Images"):
     raw_keywords = """
     1. AI Adoption
-    2. Operational Excellence
-    3. AI Training
-    4. Business Courses
-    5. IT Industry
+    2. Training
+    3. Operational Excellence
+    4. Career Development
+    5. Business Courses
     """
-    cleaned_keywords = clean_and_split_keywords(raw_keywords)
-    st.write("Cleaned and Split Keywords:", cleaned_keywords)
+    extracted_keywords = extract_keywords(raw_keywords)
+    st.write("Extracted and Split Keywords:", extracted_keywords)
 
     # Fetch and display images
-    fetched_images = fetch_google_images(cleaned_keywords)
+    fetched_images = fetch_google_images(extracted_keywords)
     st.write("Fetched Images:")
     for img_url in fetched_images:
         st.image(img_url, width=150)
