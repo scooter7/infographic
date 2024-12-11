@@ -3,6 +3,7 @@ import openai
 from PIL import Image, ImageDraw, ImageFont
 import io
 import requests
+import re
 
 # Google Custom Search API setup
 google_api_key = st.secrets["google_api_key"]
@@ -11,10 +12,7 @@ google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
 # Set OpenAI API key
 openai.api_key = st.secrets["openai_api_key"]
 
-# Fetch clip-art images using Google Image Search
-import re
-import requests
-
+# Function to preprocess keywords
 def preprocess_keywords(text):
     """
     Preprocess and clean the text to extract individual keywords for querying.
@@ -27,14 +25,15 @@ def preprocess_keywords(text):
         # Remove numbering (e.g., "1.") and extra spaces
         clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
         if clean_line:
-            # Split lines with multiple terms by common delimiters
-            split_terms = re.split(r"[,\-\n]+", clean_line)
+            # Split multiple terms within a line by common delimiters
+            split_terms = re.split(r"[,;|\-\n]+", clean_line)
             for term in split_terms:
                 term = term.strip()
-                if term:
+                if term:  # Ensure no empty terms
                     keywords.append(term)
     return keywords
 
+# Function to query Google Custom Search for an image
 def query_google_images(keyword):
     """
     Query Google Custom Search API for a single keyword.
@@ -64,42 +63,90 @@ def query_google_images(keyword):
         st.error(f"Error querying Google API for '{keyword}': {e}")
         return None
 
+# Function to fetch images for a list of keywords
 def fetch_images_for_keywords(keywords):
     """
     Fetch images for a list of keywords, handling failures gracefully.
     """
-    images = {}
+    images = []
     for keyword in keywords:
         st.write(f"Querying for '{keyword}'...")
         image_url = query_google_images(keyword)
         if image_url:
             st.write(f"Found image for '{keyword}': {image_url}")
-            images[keyword] = image_url
+            images.append(image_url)
         else:
             st.warning(f"No image found for '{keyword}'.")
     return images
 
-# Example Input and Testing
-if st.button("Test New Approach"):
-    raw_text = """
-    1. AI Adoption
-    2. AI Impact
-    3. AI Training
-    4. Workplace Solutions
-    5. Career Development
+# Function to create the infographic
+def create_infographic(content_sections, background_color, images):
     """
-    st.write("Raw Input Text:", raw_text)
+    Create an infographic with text sections and associated clip-art images.
+    """
+    # Create a blank canvas with background color
+    width, height = 1400, 800
+    img = Image.new("RGB", (width, height), background_color)
+    draw = ImageDraw.Draw(img)
 
-    # Preprocess keywords
-    keywords = preprocess_keywords(raw_text)
-    st.write("Preprocessed Keywords:", keywords)
+    # Define fonts
+    try:
+        font_title = ImageFont.truetype("arial.ttf", 40)
+        font_body = ImageFont.truetype("arial.ttf", 20)
+    except IOError:
+        font_title = ImageFont.load_default()
+        font_body = ImageFont.load_default()
 
-    # Fetch images for keywords
-    images = fetch_images_for_keywords(keywords)
-    st.write("Fetched Images:")
-    for keyword, img_url in images.items():
-        st.write(f"Keyword: {keyword}")
-        st.image(img_url, width=150)
+    # Draw title
+    title = "Generated Infographic"
+    draw.text((50, 30), title, fill="black", font=font_title)
+
+    # Layout based on the number of sections
+    num_sections = len(content_sections)
+    box_width = 300
+    box_height = 200
+    margin = 50
+    x_offset = (width - (box_width + margin) * num_sections) // 2
+
+    for i, section in enumerate(content_sections):
+        x = x_offset + i * (box_width + margin)
+        y = height // 2 - box_height // 2
+
+        # Draw rectangular text box
+        draw.rectangle([x, y, x + box_width, y + box_height], outline="black", width=3)
+
+        # Add text to the box
+        words = section.split()
+        lines = []
+        line = []
+        for word in words:
+            line.append(word)
+            test_line = " ".join(line)
+            bbox = draw.textbbox((0, 0), test_line, font=font_body)
+            text_width = bbox[2] - bbox[0]
+            if text_width > box_width - 20:  # Allow padding inside the box
+                lines.append(" ".join(line[:-1]))
+                line = [word]
+        lines.append(" ".join(line))
+
+        y_text = y + 10
+        for line in lines:
+            draw.text((x + 10, y_text), line, fill="black", font=font_body)
+            y_text += 30
+
+        # Add clip art image
+        if i < len(images):
+            try:
+                img_response = requests.get(images[i])
+                if img_response.status_code == 200:
+                    img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
+                    img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
+                else:
+                    st.warning(f"Failed to fetch image from {images[i]}")
+            except Exception as e:
+                st.error(f"Error loading image from {images[i]}: {e}")
+
+    return img
 
 # Streamlit app setup
 st.title("Infographic Generator with Google Image Search")
@@ -128,7 +175,7 @@ if st.button("Generate Infographic"):
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Break the following text into structured sections and extract main keywords for image generation."},
+                {"role": "system", "content": "Break the following text into structured sections."},
                 {"role": "user", "content": content},
             ]
         )
@@ -136,89 +183,16 @@ if st.button("Generate Infographic"):
         st.write("Structured Content:", structured_content)
 
         # Extract keywords
-        response_keywords = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Extract the top 5 keywords relevant to the text for image search."},
-                {"role": "user", "content": content},
-            ]
-        )
-        keywords = response_keywords.choices[0].message.content.strip().split(", ")
+        keywords = preprocess_keywords(content)
         st.write("Extracted Keywords:", keywords)
 
-        # Fetch Google images for each section
+        # Fetch Google images for each keyword
         google_images = fetch_images_for_keywords(keywords)
-
         st.write("Fetched Clip Art Images:")
         for img_url in google_images:
             st.image(img_url, width=150)
 
         # Create infographic
-        def create_infographic(content_sections, background_color, images):
-            # Create a blank canvas with background color
-            width, height = 1400, 800
-            img = Image.new("RGB", (width, height), background_color)
-            draw = ImageDraw.Draw(img)
-
-            # Define fonts
-            try:
-                font_title = ImageFont.truetype("arial.ttf", 40)
-                font_body = ImageFont.truetype("arial.ttf", 20)
-            except IOError:
-                font_title = ImageFont.load_default()
-                font_body = ImageFont.load_default()
-
-            # Draw title
-            title = "Generated Infographic"
-            draw.text((50, 30), title, fill="black", font=font_title)
-
-            # Layout based on the number of sections
-            num_sections = len(content_sections)
-            box_width = 300
-            box_height = 200
-            margin = 50
-            x_offset = (width - (box_width + margin) * num_sections) // 2
-
-            for i, section in enumerate(content_sections):
-                x = x_offset + i * (box_width + margin)
-                y = height // 2 - box_height // 2
-
-                # Draw rectangular text box
-                draw.rectangle([x, y, x + box_width, y + box_height], outline="black", width=3)
-
-                # Add text to the box
-                words = section.split()
-                lines = []
-                line = []
-                for word in words:
-                    line.append(word)
-                    test_line = " ".join(line)
-                    bbox = draw.textbbox((0, 0), test_line, font=font_body)
-                    text_width = bbox[2] - bbox[0]
-                    if text_width > box_width - 20:  # Allow padding inside the box
-                        lines.append(" ".join(line[:-1]))
-                        line = [word]
-                lines.append(" ".join(line))
-
-                y_text = y + 10
-                for line in lines:
-                    draw.text((x + 10, y_text), line, fill="black", font=font_body)
-                    y_text += 30
-
-                # Add clip art image
-                if i < len(images):
-                    try:
-                        img_response = requests.get(images[i])
-                        if img_response.status_code == 200:
-                            img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
-                            img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
-                        else:
-                            st.warning(f"Failed to fetch image from {images[i]}")
-                    except Exception as e:
-                        st.error(f"Error loading image from {images[i]}: {e}")
-
-            return img
-
         infographic = create_infographic(structured_content, background_color, google_images)
 
         # Display the infographic
