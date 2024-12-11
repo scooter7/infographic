@@ -14,27 +14,29 @@ openai.api_key = st.secrets["openai_api_key"]
 # Fetch clip-art images using Google Image Search
 import re
 
-def clean_keywords(keywords):
+def clean_and_split_keywords(text):
     """
-    Remove numbers or numbering prefixes (e.g., '1. ', '2. ') from search terms.
+    Clean and split input text into individual keywords or short phrases.
     """
-    cleaned_keywords = [re.sub(r"^\d+\.\s*", "", keyword).strip() for keyword in keywords]
-    return cleaned_keywords
+    # Split into lines, remove numbering and special characters
+    lines = text.split("\n")
+    keywords = []
+    for line in lines:
+        # Remove numbering and extra whitespace
+        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
+        if clean_line:  # Skip empty lines
+            keywords.append(clean_line)
+    return keywords
 
 def fetch_google_images(keywords):
     """
-    Fetch clip-art-style images using Google Image Search.
-    Keywords are cleaned to remove numbering and extra characters.
+    Fetch clip-art-style images using Google Image Search for each keyword.
     """
     search_url = "https://www.googleapis.com/customsearch/v1"
     images = []
 
-    # Clean the keywords
-    cleaned_keywords = clean_keywords(keywords)
-    st.write("Cleaned Keywords:", cleaned_keywords)  # Debugging log
-
-    for keyword in cleaned_keywords:
-        query = f"{keyword} clip art"  # Individual queries
+    for keyword in keywords:
+        query = f"{keyword} clip art"
         try:
             response = requests.get(
                 search_url,
@@ -78,6 +80,24 @@ def fetch_google_images(keywords):
             st.error(f"Error during image search for '{query}': {e}")
 
     return images
+
+# Example Input and Testing
+if st.button("Test Simplify and Fetch Images"):
+    raw_keywords = """
+    AI Adoption
+    2. AI Impact
+    3. AI Training
+    4. Career Development
+    5. Job Function
+    """
+    simplified_keywords = clean_and_split_keywords(raw_keywords)
+    st.write("Cleaned Keywords:", simplified_keywords)
+
+    # Fetch and display images
+    fetched_images = fetch_google_images(simplified_keywords)
+    st.write("Fetched Images:")
+    for img_url in fetched_images:
+        st.image(img_url, width=150)
 
 # Streamlit app setup
 st.title("Infographic Generator with Google Image Search")
