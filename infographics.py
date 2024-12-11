@@ -13,31 +13,57 @@ openai.api_key = st.secrets["openai_api_key"]
 
 # Fetch clip-art images using Google Image Search
 def fetch_google_images(keywords):
+    """
+    Fetch clip-art-style images using Google Image Search.
+    Keywords are split into individual queries for better results.
+    """
     search_url = "https://www.googleapis.com/customsearch/v1"
     images = []
+
     for keyword in keywords:
-        query = f"{keyword} clip art"
-        response = requests.get(
-            search_url,
-            params={
-                "key": google_api_key,
-                "cx": google_cx,
-                "q": query,
-                "searchType": "image",
-                "fileType": "png",
-                "imgType": "clipart",
-                "num": 1,
-            },
-        )
-        if response.status_code == 200:
-            data = response.json()
-            st.write(f"Google API response for '{query}':", data)  # Debugging log
-            if "items" in data:
-                images.append(data["items"][0]["link"])
+        query = f"{keyword} clip art"  # Individual queries
+        try:
+            response = requests.get(
+                search_url,
+                params={
+                    "key": google_api_key,
+                    "cx": google_cx,
+                    "q": query,
+                    "searchType": "image",
+                    "fileType": "png",
+                    "imgType": "clipart",
+                    "num": 1,
+                },
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                st.write(f"API response for '{query}':", data)  # Debugging log
+                if "items" in data:
+                    images.append(data["items"][0]["link"])
+                else:
+                    st.warning(f"No images found for '{query}'. Trying broader query.")
+                    # Retry with a broader query
+                    response_broad = requests.get(
+                        search_url,
+                        params={
+                            "key": google_api_key,
+                            "cx": google_cx,
+                            "q": keyword,
+                            "searchType": "image",
+                            "fileType": "png",
+                            "num": 1,
+                        },
+                    )
+                    if response_broad.status_code == 200 and "items" in response_broad.json():
+                        images.append(response_broad.json()["items"][0]["link"])
+                    else:
+                        st.warning(f"No results for '{keyword}'.")
             else:
-                st.warning(f"No images found for '{query}'.")
-        else:
-            st.error(f"Google API error for '{query}': {response.status_code}")
+                st.error(f"Google API error: {response.status_code} for '{query}'")
+        except Exception as e:
+            st.error(f"Error during image search for '{query}': {e}")
+
     return images
 
 # Streamlit app setup
