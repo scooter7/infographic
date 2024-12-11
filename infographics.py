@@ -3,57 +3,41 @@ import openai
 from PIL import Image, ImageDraw, ImageFont
 import io
 import requests
-import json
-from urllib.parse import urljoin
 
-# GitHub repository URL for template examples
-TEMPLATE_REPO_URL = "https://api.github.com/repos/scooter7/infographic/contents/Examples"
+# Google Custom Search API setup
+google_api_key = st.secrets["google_api_key"]
+google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
 
-# Set OpenAI API key from Streamlit secrets
+# Set OpenAI API key
 openai.api_key = st.secrets["openai_api_key"]
 
-# Pexels API key for fetching clip art images
-pexels_api_key = st.secrets["pexels_api_key"]
-headers = {"Authorization": pexels_api_key}
-
-# Fetch template example files
-def fetch_template_examples():
-    response = requests.get(TEMPLATE_REPO_URL)
-    if response.status_code == 200:
-        templates = []
-        for file in response.json():
-            if file["name"].endswith(".json"):
-                template_response = requests.get(file["download_url"])
-                if template_response.status_code == 200:
-                    templates.append(json.loads(template_response.content))
-        return templates
-    else:
-        st.error("Unable to fetch templates from GitHub.")
-        return []
-
-# Analyze templates for layout guidance
-def analyze_templates(templates):
-    layout_data = []
-    for template in templates:
-        layout_data.append(template.get("layout", {}))  # Assume templates include 'layout' keys
-    return layout_data
-
-# Function to fetch clip art-style images based on keywords
-def fetch_clip_art_images(keywords):
-    search_url = "https://api.pexels.com/v1/search"
+# Fetch clip-art images using Google Image Search
+def fetch_google_images(keywords):
+    search_url = "https://www.googleapis.com/customsearch/v1"
     images = []
     for keyword in keywords:
         query = f"{keyword} clip art"
-        response = requests.get(search_url, params={"query": query, "per_page": 1}, headers=headers)
+        response = requests.get(
+            search_url,
+            params={
+                "key": google_api_key,
+                "cx": google_cx,
+                "q": query,
+                "searchType": "image",
+                "fileType": "png",
+                "imgType": "clipart",
+                "num": 1,
+            },
+        )
         if response.status_code == 200:
             data = response.json()
-            if data.get("photos"):
-                images.append(data["photos"][0]["src"]["medium"])
+            if "items" in data:
+                images.append(data["items"][0]["link"])
     return images
 
 # Streamlit app setup
-st.title("Infographic Generator with Template-Based Layouts")
-st.write("Generate a visually appealing infographic with dynamic content and clip art-style images.")
+st.title("Infographic Generator with Google Image Search")
+st.write("Generate a visually appealing infographic with dynamic content and clip art images.")
 
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
 manual_input = st.text_area("Or paste your text here:")
@@ -61,10 +45,6 @@ manual_input = st.text_area("Or paste your text here:")
 # Allow user to select slide background
 st.write("Select Slide Background")
 background_color = st.color_picker("Pick a background color:", "#ffffff")
-
-# Fetch and analyze templates
-templates = fetch_template_examples()
-template_layouts = analyze_templates(templates)
 
 if st.button("Generate Infographic"):
     if not uploaded_file and not manual_input.strip():
@@ -100,14 +80,14 @@ if st.button("Generate Infographic"):
         keywords = response_keywords.choices[0].message.content.strip().split(", ")
         st.write("Extracted Keywords:", keywords)
 
-        # Fetch clip art images for each section
-        clip_art_images = fetch_clip_art_images(keywords)
+        # Fetch Google images for each section
+        google_images = fetch_google_images(keywords)
         st.write("Fetched Clip Art Images:")
-        for img_url in clip_art_images:
+        for img_url in google_images:
             st.image(img_url, width=150)
 
-        # Create infographic using template layout
-        def create_infographic(content_sections, background_color, images, layout):
+        # Create infographic
+        def create_infographic(content_sections, background_color, images):
             # Create a blank canvas with background color
             width, height = 1400, 800
             img = Image.new("RGB", (width, height), background_color)
@@ -122,50 +102,52 @@ if st.button("Generate Infographic"):
                 font_body = ImageFont.load_default()
 
             # Draw title
-            title = layout.get("title", "Generated Infographic")
+            title = "Generated Infographic"
             draw.text((50, 30), title, fill="black", font=font_title)
 
-            # Use template layout for content
+            # Layout based on the number of sections
             num_sections = len(content_sections)
+            box_width = 300
+            box_height = 200
+            margin = 50
+            x_offset = (width - (box_width + margin) * num_sections) // 2
+
             for i, section in enumerate(content_sections):
-                if i < len(layout.get("boxes", [])):
-                    box = layout["boxes"][i]
-                    x, y, box_width, box_height = box["x"], box["y"], box["width"], box["height"]
+                x = x_offset + i * (box_width + margin)
+                y = height // 2 - box_height // 2
 
-                    # Draw text box
-                    draw.rectangle([x, y, x + box_width, y + box_height], outline="black", width=3)
+                # Draw rectangular text box
+                draw.rectangle([x, y, x + box_width, y + box_height], outline="black", width=3)
 
-                    # Add text to the box
-                    words = section.split()
-                    lines = []
-                    line = []
-                    for word in words:
-                        line.append(word)
-                        test_line = " ".join(line)
-                        bbox = draw.textbbox((0, 0), test_line, font=font_body)
-                        text_width = bbox[2] - bbox[0]
-                        if text_width > box_width - 20:
-                            lines.append(" ".join(line[:-1]))
-                            line = [word]
-                    lines.append(" ".join(line))
+                # Add text to the box
+                words = section.split()
+                lines = []
+                line = []
+                for word in words:
+                    line.append(word)
+                    test_line = " ".join(line)
+                    bbox = draw.textbbox((0, 0), test_line, font=font_body)
+                    text_width = bbox[2] - bbox[0]
+                    if text_width > box_width - 20:  # Allow padding inside the box
+                        lines.append(" ".join(line[:-1]))
+                        line = [word]
+                lines.append(" ".join(line))
 
-                    y_text = y + 10
-                    for line in lines:
-                        draw.text((x + 10, y_text), line, fill="black", font=font_body)
-                        y_text += 30
+                y_text = y + 10
+                for line in lines:
+                    draw.text((x + 10, y_text), line, fill="black", font=font_body)
+                    y_text += 30
 
-                    # Add clip art image
-                    if i < len(images):
-                        img_response = requests.get(images[i])
-                        if img_response.status_code == 200:
-                            img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
-                            img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
+                # Add clip art image
+                if i < len(images):
+                    img_response = requests.get(images[i])
+                    if img_response.status_code == 200:
+                        img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
+                        img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
 
             return img
 
-        # Use the first available layout
-        selected_layout = template_layouts[0] if template_layouts else {"title": "Generated Infographic", "boxes": []}
-        infographic = create_infographic(structured_content, background_color, clip_art_images, selected_layout)
+        infographic = create_infographic(structured_content, background_color, google_images)
 
         # Display the infographic
         st.image(infographic, caption="Generated Infographic", use_column_width=True)
