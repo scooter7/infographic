@@ -17,13 +17,13 @@ import re
 def clean_and_split_keywords(text):
     """
     Properly clean and split the input text into individual keywords.
-    Handles numbered lists, multiline text, and unnecessary characters.
+    Removes numbering and simplifies each line.
     """
-    # Split by newlines
+    # Split the text by newlines
     lines = text.splitlines()
     keywords = []
     for line in lines:
-        # Remove numbering (e.g., "1.", "2.") and strip whitespace
+        # Remove numbering (e.g., "1.", "2.") and extra spaces
         clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
         if clean_line:  # Skip empty lines
             keywords.append(clean_line)
@@ -58,23 +58,7 @@ def fetch_google_images(keywords):
                 if "items" in data:
                     images.append(data["items"][0]["link"])
                 else:
-                    st.warning(f"No images found for '{query}'. Trying broader query.")
-                    # Retry with a broader query
-                    response_broad = requests.get(
-                        search_url,
-                        params={
-                            "key": google_api_key,
-                            "cx": google_cx,
-                            "q": keyword,
-                            "searchType": "image",
-                            "fileType": "png",
-                            "num": 1,
-                        },
-                    )
-                    if response_broad.status_code == 200 and "items" in response_broad.json():
-                        images.append(response_broad.json()["items"][0]["link"])
-                    else:
-                        st.warning(f"No results for '{keyword}'.")
+                    st.warning(f"No images found for '{query}'.")
             else:
                 st.error(f"Google API error: {response.status_code} for '{query}'")
         except Exception as e:
@@ -83,7 +67,7 @@ def fetch_google_images(keywords):
     return images
 
 # Example Input and Testing
-if st.button("Test Simplify and Fetch Images"):
+if st.button("Test Clean and Fetch Images"):
     raw_keywords = """
     1. AI Adoption
     2. AI Impact
@@ -91,11 +75,11 @@ if st.button("Test Simplify and Fetch Images"):
     4. Workplace Solutions
     5. Career Development
     """
-    simplified_keywords = clean_and_split_keywords(raw_keywords)
-    st.write("Cleaned and Split Keywords:", simplified_keywords)
+    cleaned_keywords = clean_and_split_keywords(raw_keywords)
+    st.write("Cleaned Keywords:", cleaned_keywords)
 
     # Fetch and display images
-    fetched_images = fetch_google_images(simplified_keywords)
+    fetched_images = fetch_google_images(cleaned_keywords)
     st.write("Fetched Images:")
     for img_url in fetched_images:
         st.image(img_url, width=150)
