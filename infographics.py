@@ -1,32 +1,40 @@
 import streamlit as st
 import openai
+import requests
+import re
 from PIL import Image, ImageDraw, ImageFont
 import io
-import requests
 
 # Google Custom Search API setup
 google_api_key = st.secrets["google_api_key"]
-google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
+google_cx = st.secrets["google_cx"]
 
 # Set OpenAI API key
 openai.api_key = st.secrets["openai_api_key"]
 
-def extract_concepts_from_text(text):
+def extract_concepts_by_section(text):
     """
-    Use OpenAI to extract meaningful keywords or core concepts from the input text.
+    Extract 2-3 meaningful keywords per section from the text using OpenAI.
     """
     try:
         response = openai.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Extract concise keywords or phrases from the following text for image generation."},
+                {
+                    "role": "system",
+                    "content": (
+                        "Extract a maximum of 3 concise keywords per section from the text. "
+                        "Focus on high-level concepts like topics, ideas, or themes. "
+                        "Avoid including numeric values, percentages, or excessive details."
+                    ),
+                },
                 {"role": "user", "content": text},
-            ]
+            ],
         )
-        extracted_keywords = response.choices[0].message.content.strip()
-        return extracted_keywords.split(", ")  # Split into individual keywords
+        keywords = response.choices[0].message.content.strip()
+        return [kw.strip() for kw in keywords.split(",") if kw.strip()]
     except Exception as e:
-        st.error(f"Error extracting concepts from text: {e}")
+        st.error(f"Error extracting concepts: {e}")
         return []
 
 def query_google_images(keyword):
@@ -75,7 +83,7 @@ def fetch_images_for_keywords(keywords):
 
 # Streamlit app setup
 st.title("Infographic Generator with Focused Keyword Extraction")
-st.write("Generate a visually appealing infographic with dynamic content and clip art images.")
+st.write("Generate a visually appealing infographic with concise, meaningful keywords and clip-art images.")
 
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
 manual_input = st.text_area("Or paste your text here:")
@@ -96,9 +104,16 @@ if st.button("Generate Infographic"):
 
         st.write("Processing your content...")
 
-        # Extract concise keywords using OpenAI
-        extracted_keywords = extract_concepts_from_text(content)
-        st.write("Extracted Keywords:", extracted_keywords)
+        # Break content into sections for OpenAI processing
+        sections = content.split("\n\n")
+        extracted_keywords = []
+        for section in sections:
+            st.write(f"Processing section: {section}")
+            keywords = extract_concepts_by_section(section)
+            st.write(f"Extracted keywords for section: {keywords}")
+            extracted_keywords.extend(keywords)
+
+        st.write("All Extracted Keywords:", extracted_keywords)
 
         # Fetch Google images for each keyword
         google_images = fetch_images_for_keywords(extracted_keywords)
