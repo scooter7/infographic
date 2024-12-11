@@ -56,26 +56,27 @@ def query_google_images(keyword):
     params = {
         "key": google_api_key,
         "cx": google_cx,
-        "q": f"{keyword} clip art",  # Keep 'clip art' as part of the query
+        "q": keyword,  # Broader query without "clip art"
         "searchType": "image",
-        "num": 1,  # Limit results to 1 image for testing
+        "num": 5,  # Fetch multiple results to improve chances
     }
     try:
         response = requests.get(search_url, params=params)
         if response.status_code == 200:
             data = response.json()
-            st.write("Raw API Response:", data)  # Log the full API response for debugging
+            st.write("Raw API Response:", data)  # Debugging output
             if "items" in data:
-                return data["items"][0]["link"]
+                # Return all image links
+                return [item["link"] for item in data["items"]]
             else:
                 st.warning(f"No results found for '{keyword}' in API response.")
-                return None
+                return []
         else:
             st.error(f"Google API error: {response.status_code} - {response.text}")
-            return None
+            return []
     except Exception as e:
         st.error(f"Error querying Google API for '{keyword}': {e}")
-        return None
+        return []
 
 def fetch_images_for_keywords(keywords):
     """
@@ -84,12 +85,12 @@ def fetch_images_for_keywords(keywords):
     images = []
     for keyword in keywords:
         st.write(f"Querying for '{keyword}'...")
-        image_url = query_google_images(keyword)
-        if image_url:
-            st.write(f"Found image for '{keyword}': {image_url}")
-            images.append(image_url)
+        image_urls = query_google_images(keyword)
+        if image_urls:
+            st.write(f"Found images for '{keyword}': {image_urls}")
+            images.extend(image_urls)
         else:
-            st.warning(f"No image found for '{keyword}'.")
+            st.warning(f"No images found for '{keyword}'.")
     return images
 
 # Streamlit app setup
