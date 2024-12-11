@@ -1,3 +1,9 @@
+import streamlit as st
+import openai
+from PIL import Image, ImageDraw, ImageFont
+import io
+import requests
+
 # Google Custom Search API setup
 google_api_key = st.secrets["google_api_key"]
 google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
