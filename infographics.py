@@ -12,15 +12,28 @@ google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
 openai.api_key = st.secrets["openai_api_key"]
 
 # Fetch clip-art images using Google Image Search
+import re
+
+def clean_keywords(keywords):
+    """
+    Remove numbers or numbering prefixes (e.g., '1. ', '2. ') from search terms.
+    """
+    cleaned_keywords = [re.sub(r"^\d+\.\s*", "", keyword).strip() for keyword in keywords]
+    return cleaned_keywords
+
 def fetch_google_images(keywords):
     """
     Fetch clip-art-style images using Google Image Search.
-    Keywords are split into individual queries for better results.
+    Keywords are cleaned to remove numbering and extra characters.
     """
     search_url = "https://www.googleapis.com/customsearch/v1"
     images = []
 
-    for keyword in keywords:
+    # Clean the keywords
+    cleaned_keywords = clean_keywords(keywords)
+    st.write("Cleaned Keywords:", cleaned_keywords)  # Debugging log
+
+    for keyword in cleaned_keywords:
         query = f"{keyword} clip art"  # Individual queries
         try:
             response = requests.get(
