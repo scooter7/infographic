@@ -147,7 +147,8 @@ if st.button("Generate Infographic"):
         st.write("Extracted Keywords:", keywords)
 
         # Fetch Google images for each section
-        google_images = fetch_google_images(keywords)
+        google_images = fetch_images_for_keywords(keywords)
+
         st.write("Fetched Clip Art Images:")
         for img_url in google_images:
             st.image(img_url, width=150)
