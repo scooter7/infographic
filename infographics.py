@@ -56,22 +56,22 @@ def query_google_images(keyword):
     params = {
         "key": google_api_key,
         "cx": google_cx,
-        "q": f"{keyword} clip art",
+        "q": f"{keyword} clip art",  # Keep 'clip art' as part of the query
         "searchType": "image",
-        "fileType": "png",
-        "imgType": "clipart",
-        "num": 1,
+        "num": 1,  # Limit results to 1 image for testing
     }
     try:
         response = requests.get(search_url, params=params)
         if response.status_code == 200:
             data = response.json()
+            st.write("Raw API Response:", data)  # Log the full API response for debugging
             if "items" in data:
                 return data["items"][0]["link"]
             else:
+                st.warning(f"No results found for '{keyword}' in API response.")
                 return None
         else:
-            st.error(f"Google API error: {response.status_code}")
+            st.error(f"Google API error: {response.status_code} - {response.text}")
             return None
     except Exception as e:
         st.error(f"Error querying Google API for '{keyword}': {e}")
