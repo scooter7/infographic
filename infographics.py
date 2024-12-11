@@ -16,16 +16,21 @@ import re
 
 def clean_and_split_keywords(text):
     """
-    Clean and split input text into individual keywords or short phrases.
+    Clean and split the input text into individual keywords or short phrases.
     """
-    # Split into lines, remove numbering and special characters
+    # Split the text by newlines or common delimiters
     lines = text.split("\n")
     keywords = []
     for line in lines:
-        # Remove numbering and extra whitespace
-        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
+        # Remove numbering and extra spaces
+        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()  # Remove leading numbers like "1. ", "2. "
         if clean_line:  # Skip empty lines
-            keywords.append(clean_line)
+            # Further split lines with multiple terms joined by commas or spaces
+            split_keywords = re.split(r"[,\-]+", clean_line)
+            for keyword in split_keywords:
+                keyword = keyword.strip()
+                if keyword:  # Skip empty or whitespace-only entries
+                    keywords.append(keyword)
     return keywords
 
 def fetch_google_images(keywords):
@@ -84,14 +89,14 @@ def fetch_google_images(keywords):
 # Example Input and Testing
 if st.button("Test Simplify and Fetch Images"):
     raw_keywords = """
-    AI Adoption
+    1. AI Adoption
     2. AI Impact
     3. AI Training
-    4. Career Development
-    5. Job Function
+    4. Implementation
+    5. Industry Insights
     """
     simplified_keywords = clean_and_split_keywords(raw_keywords)
-    st.write("Cleaned Keywords:", simplified_keywords)
+    st.write("Cleaned and Split Keywords:", simplified_keywords)
 
     # Fetch and display images
     fetched_images = fetch_google_images(simplified_keywords)
