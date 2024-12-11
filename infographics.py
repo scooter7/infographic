@@ -1,9 +1,3 @@
-import streamlit as st
-import openai
-from PIL import Image, ImageDraw, ImageFont
-import io
-import requests
-
 # Google Custom Search API setup
 google_api_key = st.secrets["google_api_key"]
 google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
@@ -31,8 +25,13 @@ def fetch_google_images(keywords):
         )
         if response.status_code == 200:
             data = response.json()
+            st.write(f"Google API response for '{query}':", data)  # Debugging log
             if "items" in data:
                 images.append(data["items"][0]["link"])
+            else:
+                st.warning(f"No images found for '{query}'.")
+        else:
+            st.error(f"Google API error for '{query}': {response.status_code}")
     return images
 
 # Streamlit app setup
@@ -140,10 +139,15 @@ if st.button("Generate Infographic"):
 
                 # Add clip art image
                 if i < len(images):
-                    img_response = requests.get(images[i])
-                    if img_response.status_code == 200:
-                        img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
-                        img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
+                    try:
+                        img_response = requests.get(images[i])
+                        if img_response.status_code == 200:
+                            img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
+                            img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
+                        else:
+                            st.warning(f"Failed to fetch image from {images[i]}")
+                    except Exception as e:
+                        st.error(f"Error loading image from {images[i]}: {e}")
 
             return img
 
