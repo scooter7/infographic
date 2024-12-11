@@ -3,7 +3,6 @@ import openai
 from PIL import Image, ImageDraw, ImageFont
 import io
 import requests
-import re
 
 # Google Custom Search API setup
 google_api_key = st.secrets["google_api_key"]
@@ -12,28 +11,24 @@ google_cx = st.secrets["google_cx"]  # Custom Search Engine ID
 # Set OpenAI API key
 openai.api_key = st.secrets["openai_api_key"]
 
-# Function to preprocess keywords
-def preprocess_keywords(text):
+def extract_concepts_from_text(text):
     """
-    Preprocess and clean the text to extract individual keywords for querying.
-    Removes numbering, splits multi-term lines, and ensures clean keywords.
+    Use OpenAI to extract meaningful keywords or core concepts from the input text.
     """
-    # Split text into lines
-    lines = text.splitlines()
-    keywords = []
-    for line in lines:
-        # Remove numbering (e.g., "1.") and extra spaces
-        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
-        if clean_line:
-            # Split multiple terms within a line by common delimiters
-            split_terms = re.split(r"[,;|\-\n]+", clean_line)
-            for term in split_terms:
-                term = term.strip()
-                if term:  # Ensure no empty terms
-                    keywords.append(term)
-    return keywords
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Extract concise keywords or phrases from the following text for image generation."},
+                {"role": "user", "content": text},
+            ]
+        )
+        extracted_keywords = response.choices[0].message.content.strip()
+        return extracted_keywords.split(", ")  # Split into individual keywords
+    except Exception as e:
+        st.error(f"Error extracting concepts from text: {e}")
+        return []
 
-# Function to query Google Custom Search for an image
 def query_google_images(keyword):
     """
     Query Google Custom Search API for a single keyword.
@@ -63,7 +58,6 @@ def query_google_images(keyword):
         st.error(f"Error querying Google API for '{keyword}': {e}")
         return None
 
-# Function to fetch images for a list of keywords
 def fetch_images_for_keywords(keywords):
     """
     Fetch images for a list of keywords, handling failures gracefully.
@@ -79,77 +73,8 @@ def fetch_images_for_keywords(keywords):
             st.warning(f"No image found for '{keyword}'.")
     return images
 
-# Function to create the infographic
-def create_infographic(content_sections, background_color, images):
-    """
-    Create an infographic with text sections and associated clip-art images.
-    """
-    # Create a blank canvas with background color
-    width, height = 1400, 800
-    img = Image.new("RGB", (width, height), background_color)
-    draw = ImageDraw.Draw(img)
-
-    # Define fonts
-    try:
-        font_title = ImageFont.truetype("arial.ttf", 40)
-        font_body = ImageFont.truetype("arial.ttf", 20)
-    except IOError:
-        font_title = ImageFont.load_default()
-        font_body = ImageFont.load_default()
-
-    # Draw title
-    title = "Generated Infographic"
-    draw.text((50, 30), title, fill="black", font=font_title)
-
-    # Layout based on the number of sections
-    num_sections = len(content_sections)
-    box_width = 300
-    box_height = 200
-    margin = 50
-    x_offset = (width - (box_width + margin) * num_sections) // 2
-
-    for i, section in enumerate(content_sections):
-        x = x_offset + i * (box_width + margin)
-        y = height // 2 - box_height // 2
-
-        # Draw rectangular text box
-        draw.rectangle([x, y, x + box_width, y + box_height], outline="black", width=3)
-
-        # Add text to the box
-        words = section.split()
-        lines = []
-        line = []
-        for word in words:
-            line.append(word)
-            test_line = " ".join(line)
-            bbox = draw.textbbox((0, 0), test_line, font=font_body)
-            text_width = bbox[2] - bbox[0]
-            if text_width > box_width - 20:  # Allow padding inside the box
-                lines.append(" ".join(line[:-1]))
-                line = [word]
-        lines.append(" ".join(line))
-
-        y_text = y + 10
-        for line in lines:
-            draw.text((x + 10, y_text), line, fill="black", font=font_body)
-            y_text += 30
-
-        # Add clip art image
-        if i < len(images):
-            try:
-                img_response = requests.get(images[i])
-                if img_response.status_code == 200:
-                    img_overlay = Image.open(io.BytesIO(img_response.content)).resize((80, 80), Image.Resampling.LANCZOS)
-                    img.paste(img_overlay, (x + box_width // 2 - 40, y - 90), mask=img_overlay)
-                else:
-                    st.warning(f"Failed to fetch image from {images[i]}")
-            except Exception as e:
-                st.error(f"Error loading image from {images[i]}: {e}")
-
-    return img
-
 # Streamlit app setup
-st.title("Infographic Generator with Google Image Search")
+st.title("Infographic Generator with Focused Keyword Extraction")
 st.write("Generate a visually appealing infographic with dynamic content and clip art images.")
 
 uploaded_file = st.file_uploader("Upload a text file with your content:", type=["txt"])
@@ -171,35 +96,15 @@ if st.button("Generate Infographic"):
 
         st.write("Processing your content...")
 
-        # Extract structured content and keywords
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "Break the following text into structured sections."},
-                {"role": "user", "content": content},
-            ]
-        )
-        structured_content = response.choices[0].message.content.strip().split("\n\n")
-        st.write("Structured Content:", structured_content)
-
-        # Extract keywords
-        keywords = preprocess_keywords(content)
-        st.write("Extracted Keywords:", keywords)
+        # Extract concise keywords using OpenAI
+        extracted_keywords = extract_concepts_from_text(content)
+        st.write("Extracted Keywords:", extracted_keywords)
 
         # Fetch Google images for each keyword
-        google_images = fetch_images_for_keywords(keywords)
+        google_images = fetch_images_for_keywords(extracted_keywords)
         st.write("Fetched Clip Art Images:")
         for img_url in google_images:
             st.image(img_url, width=150)
 
-        # Create infographic
-        infographic = create_infographic(structured_content, background_color, google_images)
-
-        # Display the infographic
-        st.image(infographic, caption="Generated Infographic", use_column_width=True)
-
-        # Save and allow download
-        buf = io.BytesIO()
-        infographic.save(buf, format="PNG")
-        buf.seek(0)
-        st.download_button("Download Infographic", data=buf, file_name="infographic.png", mime="image/png")
+        # Placeholder for infographic generation
+        st.write("Infographic generation not yet implemented with images.")
