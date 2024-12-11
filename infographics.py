@@ -16,18 +16,20 @@ import re
 
 def clean_and_split_keywords(text):
     """
-    Properly clean and split the input text into individual keywords.
-    Removes numbering and simplifies each line.
+    Clean and split the input text into individual keywords.
+    Handles multi-line, numbered lists, and unnecessary characters.
     """
-    # Split the text by newlines
+    # Split the text into lines
     lines = text.splitlines()
     keywords = []
     for line in lines:
-        # Remove numbering (e.g., "1.", "2.") and extra spaces
-        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()
-        if clean_line:  # Skip empty lines
-            keywords.append(clean_line)
-    return keywords
+        # Remove numbering and strip extra spaces
+        clean_line = re.sub(r"^\d+\.\s*", "", line).strip()  # Remove numbering like "1. "
+        if clean_line:  # Only keep non-empty lines
+            # Split multi-phrased lines by double spaces or other delimiters
+            split_terms = re.split(r"\s{2,}", clean_line)
+            keywords.extend(split_terms)  # Add each term individually
+    return [kw.strip() for kw in keywords if kw]  # Remove extra spaces and empty strings
 
 def fetch_google_images(keywords):
     """
@@ -69,14 +71,14 @@ def fetch_google_images(keywords):
 # Example Input and Testing
 if st.button("Test Clean and Fetch Images"):
     raw_keywords = """
-    1. AI Adoption
-    2. AI Impact
-    3. AI Training
-    4. Workplace Solutions
-    5. Career Development
+    1. AI Adoption  
+    2. AI Training  
+    3. Operational Excellence  
+    4. Workforce Development  
+    5. Industry Segmentation
     """
     cleaned_keywords = clean_and_split_keywords(raw_keywords)
-    st.write("Cleaned Keywords:", cleaned_keywords)
+    st.write("Cleaned and Split Keywords:", cleaned_keywords)
 
     # Fetch and display images
     fetched_images = fetch_google_images(cleaned_keywords)
